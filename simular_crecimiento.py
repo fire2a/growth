@@ -21,12 +21,17 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import toml
 
+
+
+data=toml.load("input_simulador.toml")
 df = pd.read_csv("tabla.csv")
 df.index = df.id
 # ['id', 'next', 'Especie', 'Zona', 'DensidadInicial', 'SiteIndex', 'Manejo', 'Condicion', 'α', 'β', 'γ']
 
 config = {
+    'global':{
     "horizonte": 40,
     "rodales": 20,
     "edades": [0, 14],  # falta caso edad < cosecha, luego edad max < cosecha min (14<15)
@@ -34,16 +39,29 @@ config = {
     "raleos": [7, 25],
     "podas": [7, 25],
     "cosechas": [15, 30],
+},
+'random':{
+      "horizonte": 40,
+    "rodales": 20,
+    "edades": [0, 14],  # falta caso edad < cosecha, luego edad max < cosecha min (14<15)
+    "has": [1, 10],
+    "raleos": [6, 10],
+    "podas": [11, 20],
+    "cosechas": [21, 30],
+}
 }
 
 
 def calc_biomasa(rodal: pd.Series, e: int) -> float:
     """calcular la biomasa para un rodal y una edad, >=0"""
-    return max(rodal["α"] * e ** rodal["β"] + rodal["γ"], 0)
+    if e <8:
+        return max(e*(rodal["α"] * 8 ** rodal["β"] + rodal["γ"])/8,0)
+    else:
+        return max(rodal["α"] * e ** rodal["β"] + rodal["γ"], 0)
 
 
-def generar_rodal(idx=None, edades=config["edades"], has=config["has"]) -> pd.Series:
-    """elegir/sortear un modelo de la tabla, sortear edad y hectareas"""
+"""def generar_rodal(idx=None, edades=config["edades"], has=config["has"]) -> pd.Series:
+    elegir/sortear un modelo de la tabla, sortear edad y hectareas
     # FIXME : comentar proximas 2 lineas
     # edades=config["edades"]
     # has=config["has"]
@@ -54,41 +72,56 @@ def generar_rodal(idx=None, edades=config["edades"], has=config["has"]) -> pd.Se
             df.loc[idx],
             pd.Series({"edad": np.random.randint(*edades), "ha": np.random.randint(*has)}),
         )
-    )
-
+    )"""
+def generar_rodal(idx=None, edades=data["datos"]["edades"], has=data["datos"]["has"]) -> pd.Series:
+    """elegir/sortear un modelo de la tabla, sortear edad y hectareas"""
+    # FIXME : comentar proximas 2 lineas
+    edades=data["datos"]["edades"]
+    has=data["datos"]["has"]
+    if not idx:
+        idx = np.random.choice(df.id)
+    for idx, (edad, ha) in enumerate(zip(edades, has), 1):
+        return pd.concat(
+            (
+                df.loc[idx],  # Datos del DataFrame en el índice específico
+                pd.Series({"edad": edad, "ha": ha})  # Edad y hectáreas específicas
+            )
+        )
 
 def genera_plan_de_manejo(
-    raleos=config["raleos"],
-    podas=config["podas"],
-    cosechas=config["cosechas"],
+    raleos=data["usuario"]["raleos"],
+    podas=data["usuario"]["podas"],
+    cosechas=data["usuario"]["cosechas"],
 ) -> pd.Series:
     """sortear ano de raleo, poda y cosecha. Debe ser coherente: raleo < cosecha y poda < cosecha"""
     # FIXME : comentar proximas 3 lineas
-    # raleos=config["raleos"]
-    # podas=config["podas"]
-    # cosechas=config["cosechas"]
-    cosecha = np.random.randint(*cosechas)
-    if cosecha < podas[1]:
-        podas[1] = cosecha - 1
-    if cosecha < raleos[1]:
-        raleos[1] = cosecha - 1
+    raleos=data["usuario"]["raleos"]
+    podas=data["usuario"]["podas"]
+    cosechas=data["usuario"]["cosechas"]
+    #cosecha = np.random.randint(*cosechas)
+    for raleo, poda, cosecha in zip(raleos, podas, cosechas):
+        # Asegurar la coherencia: raleo < cosecha y poda < cosecha
+        if poda >= cosecha:
+            poda = cosecha - 1
+        if raleo >= cosecha:
+            raleo = cosecha - 1
     return pd.Series(
         {
-            "raleo": np.random.randint(*raleos),
-            "poda": np.random.randint(*podas),
-            "cosecha": np.random.randint(*cosechas),
+            "raleo": raleos,
+            "poda": podas,
+            "cosecha": cosechas,
         }
     )
 
 
 def simula_rodal_plan(
-    rodal=generar_rodal(), plan_mnjo=genera_plan_de_manejo(), horizonte=config["horizonte"]
+    rodal=generar_rodal(), plan_mnjo=genera_plan_de_manejo(), horizonte=data["usuario"]["horizonte"]
 ) -> list[pd.Series]:
     """a partir de un rodal y un plan de manejo, simula la biomasa"""
     # FIXME : comentar proximas 3 lineas
-    # horizonte = config["horizonte"]
-    # rodal = generar_rodal()
-    # plan_mnjo = genera_plan_de_manejo()
+    horizonte = data["usuario"]["horizonte"]
+    rodal = generar_rodal()
+    plan_mnjo = genera_plan_de_manejo()
     rodal_plan = pd.concat((rodal, plan_mnjo))
 
     assert plan_mnjo.raleo < plan_mnjo.cosecha < horizonte
@@ -100,7 +133,7 @@ def simula_rodal_plan(
         return (
             rodal.ha
             * pd.Series(
-                [calc_biomasa(rodal, rodal.edad + i) for i in range(rodal_plan.cosecha)]
+                [calc_biomasa(rodal, rodal.edad + i) for i in range(rodal_plan.cosecha-rodal.edad)]
                 + [0 for i in range(rodal_plan.cosecha, horizonte)]
             ),
             rodal_plan,
@@ -119,9 +152,9 @@ def simula_rodal_plan(
     )
 
 
-def simula_tabla(horizonte=config["horizonte"]):
+def simula_tabla(horizonte=data["usuario"]["horizonte"]):
     # FIXME : comentar proxima linea
-    # horizonte = config["horizonte"]
+    horizonte = data["usuario"]["horizonte"]
 
     # para cada modelo, calcular biomasa hasta horizonte, retorna filas
     df_all = df.apply(lambda row: pd.Series([calc_biomasa(row, e) for e in range(horizonte)]), axis=1)
@@ -140,9 +173,9 @@ def simula_tabla(horizonte=config["horizonte"]):
     # plt.show()
 
 
-def simula_bosque(num_rodales=config["rodales"]):
+def simula_bosque(num_rodales=data["datos"]["rodales"]):
     # FIXME : comentar proxima linea
-    num_rodales = config["rodales"]
+    num_rodales = data["datos"]["rodales"]
 
     df_bm = pd.DataFrame()
     df_bo = pd.DataFrame()
@@ -159,8 +192,8 @@ def simula_bosque(num_rodales=config["rodales"]):
             (df_bo, rodal_plan.to_frame().T[["id", "next", "edad", "ha", "raleo", "poda", "cosecha"]]), axis=0
         )
 
-    df_bm.to_csv("biomasa.csv")
-    df_bo.to_csv("bosque.csv")
+    df_bm.to_csv("biomasa1.csv",index=False)
+    df_bo.to_csv("bosque1.csv",index=False)
 
     df_bo.merge(df, on="id")
     df_bos = pd.merge(df_bo, df.drop(["id", "next"], axis=1), how="left", left_on="id", right_on="id")
