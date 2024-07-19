@@ -30,7 +30,7 @@ df = pd.read_csv("tabla.csv")
 df.index = df.id
 # ['id', 'next', 'Especie', 'Zona', 'DensidadInicial', 'SiteIndex', 'Manejo', 'Condicion', 'α', 'β', 'γ']
 
-config = {
+"""config = {
     'global':{
     "horizonte": 40,
     "rodales": 20,
@@ -49,13 +49,13 @@ config = {
     "podas": [11, 20],
     "cosechas": [21, 30],
 }
-}
+}"""
 
 
 def calc_biomasa(rodal: pd.Series, e: int) -> float:
     """calcular la biomasa para un rodal y una edad, >=0"""
     if e <8:
-        return max(e*(rodal["α"] * 8 ** rodal["β"] + rodal["γ"])/8,0)
+        return max(e*(rodal["α"] * 9 ** rodal["β"] + rodal["γ"])/9,0)
     else:
         return max(rodal["α"] * e ** rodal["β"] + rodal["γ"], 0)
 
@@ -113,6 +113,27 @@ def genera_plan_de_manejo(
         }
     )
 
+def generar_codigo_kitral(especie: str, edad: int, condición: str) -> str:
+    """Genera un diccionario de códigos Kitral basado en la especie, edad y condición"""
+    key = (especie, edad, condición)
+    if key[0] == "Pinus":
+        if key[1] <= 3:
+            value = "PL01"
+        elif 3 < key[1] <= 11:
+            value = "PL05" if key[2] == "con manejo" else "PL02"
+        elif 11 < key[1] <= 17:
+            value = "PL06" if key[2] == "con manejo" else "PL03"
+        else:
+            value = "PL07" if key[2] == "con manejo" else "PL04"
+    else:  # Eucalyptus
+        if key[1] <= 3:
+            value = "PL08"
+        elif 3 < key[1] <= 10:
+            value = "PL09"
+        else:
+            value = "PL10"
+    return value
+
 
 def simula_rodal_plan(
     rodal=generar_rodal(), plan_mnjo=genera_plan_de_manejo(), horizonte=data["usuario"]["horizonte"]
@@ -130,31 +151,69 @@ def simula_rodal_plan(
     # np.isnan(rodal.next)
     if np.isnan(rodal.next):
         rodal_plan.raleo = -1
-        return (
+        periodo_actual= rodal_plan.cosecha-rodal.edad
+        
+        a = []
+        a.append(calc_biomasa(rodal,rodal.edad + i) for i in range(rodal_plan.cosecha-rodal.edad))
+        while periodo_actual <horizonte:
+            if periodo_actual + rodal_plan.cosecha < horizonte:
+                a.append(calc_biomasa(rodal,i) for i in range(rodal_plan.cosecha))
+                periodo_actual = periodo_actual + rodal_plan.cosecha
+            else:
+                a.append(calc_biomasa(rodal,i) for i in range(periodo_actual, horizonte))
+                periodo_actual = horizonte
+        return rodal.ha * a
+            
+        """return (
             rodal.ha
             * pd.Series(
                 [calc_biomasa(rodal, rodal.edad + i) for i in range(rodal_plan.cosecha-rodal.edad)]
                 + [0 for i in range(rodal_plan.cosecha, horizonte)]
             ),
             rodal_plan,
-        )
+        )"""
 
     next_rodal = df.loc[rodal.next]
+    a=[]
+    if rodal.edad >= rodal_plan.raleo:
+        if rodal.edad <=10:
+            a.append(calc_biomasa(rodal,rodal.edad + i) for i in range(rodal_plan.cosecha-rodal.edad))
+        else:
+            a.append(calc_biomasa(next_rodal,rodal.edad + i) for i in range(rodal_plan.cosecha-rodal.edad))
+    else:
+        a.append(calc_biomasa(rodal, rodal.edad + i) for i in range(rodal_plan.raleo-rodal.edad))
+        a.append(calc_biomasa(next_rodal, rodal.edad + i) for i in range(rodal_plan.raleo, rodal_plan.cosecha))
+    periodo_actual= rodal_plan.cosecha-rodal.edad
+    while periodo_actual <horizonte:
+            if periodo_actual + rodal_plan.cosecha < horizonte:
+                a.append(calc_biomasa(rodal, i) for i in range(rodal_plan.raleo))
+                a.append(calc_biomasa(next_rodal, rodal_plan.raleo + i) for i in range(rodal_plan.raleo, rodal_plan.cosecha))
+                periodo_actual = periodo_actual + rodal_plan.cosecha
+            else:
+                if periodo_actual + rodal_plan.raleo < horizonte:
+                    a.append(calc_biomasa(rodal,i) for i in range(rodal_plan.raleo))
+                    a.append(calc_biomasa(next_rodal,rodal_plan.raleo + i) for i in range(periodo_actual+rodal_plan.raleo,horizonte))
+                else:
+                    a.append(calc_biomasa(rodal,i) for i in range(periodo_actual, horizonte))
+                periodo_actual = horizonte
+    return rodal.ha * a
+
     # print(f"{plan_mnjo.raleo=}", f"{plan_mnjo.cosecha=}", f"{horizonte=}")
-    return (
+    """return (
         rodal.ha
         * pd.Series(
-            [calc_biomasa(rodal, rodal.edad + i) for i in range(rodal_plan.raleo)]
+            [calc_biomasa(rodal, rodal.edad + i) for i in range(rodal_plan.raleo-rodal.edad)]
             + [calc_biomasa(next_rodal, rodal.edad + i) for i in range(rodal_plan.raleo, rodal_plan.cosecha)]
             + [0 for i in range(rodal_plan.cosecha, horizonte)]
         ),
         rodal_plan,
-    )
+    )"""
 
 
 def simula_tabla(horizonte=data["usuario"]["horizonte"]):
     # FIXME : comentar proxima linea
     horizonte = data["usuario"]["horizonte"]
+
 
     # para cada modelo, calcular biomasa hasta horizonte, retorna filas
     df_all = df.apply(lambda row: pd.Series([calc_biomasa(row, e) for e in range(horizonte)]), axis=1)
