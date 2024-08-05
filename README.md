@@ -9,6 +9,7 @@ see `simulator.py`
 
 ### requirements
 numpy
+
 #### optionals
 matplotlib
 scipy
