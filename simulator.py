@@ -26,17 +26,19 @@ GLOBALS:
     - models: modelos de crecimiento leidos de tabla.csv
     - rng: generador de números aleatorios: ojo con la semilla
 """
-import tomllib
+import toml
 from itertools import product
 
 import numpy as np
 from IPython.display import display
-
+#display = print
 np.set_printoptions(precision=1)
 
-with open("config.toml", "rb") as f:
-    config = tomllib.load(f)
-    display(f"{config=}")
+#with open("config.toml", "rb") as f:
+#    config = toml.load(f)
+#    display(f"{config=}")
+config=toml.load("config.toml")
+
 
 # reproducible
 rng = np.random.default_rng(config["random"]["seed"])
@@ -62,10 +64,11 @@ models = np.genfromtxt(
 # OJO -1 is assigned by default
 
 
-def plot_models(horizon=40, show=True, save=False):
+def plot_models(horizon:int=40 , show=True, save=False):
+    """Crea geafico con los calculos de biomasa por cada id del arbol eje x igual al año y eje y igual a la biomasa"""
     import matplotlib.pyplot as plt
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots() 
     ax.set_title("Modelos de crecimiento")
     for model in models:
         x = np.linspace(0, horizon, (horizon - 0) * 2)
@@ -80,7 +83,7 @@ def plot_models(horizon=40, show=True, save=False):
 
 
 def solve_numeric():
-    from scipy.optimize import fsolve
+    from scipy.optimize import fsolve  
 
     zeros = []
     for model in models:
@@ -124,6 +127,7 @@ def calc_biomass(model: np.void, e: int) -> float:
 
 
 def print_manejos_possibles():
+    """imprime todos los posibles manejos para los rodales"""
     print("manejos posibles", end=": ")
     for cosecha, raleo in product(np.arange(*config["random"]["cosechas"]), np.arange(*config["random"]["raleos"])):
         if raleo > cosecha:
@@ -133,6 +137,7 @@ def print_manejos_possibles():
 
 
 def write(rodales):
+    """Crea los csv con los datos de las biomasas calcula"""
     bm = np.array([manejo["biomass"] for rodal in rodales for manejo in rodal["manejos"]])
     ev = np.array([manejo["eventos"] for rodal in rodales for manejo in rodal["manejos"]])
     names = ",".join(
@@ -142,12 +147,13 @@ def write(rodales):
     np.savetxt("biomass.csv", bm.T, delimiter=",", header=names, comments="")
     np.savetxt("events.csv", ev.T, delimiter=",", header=names, comments="", fmt="%s")
 
-    bos_names = ["rid", "mid", "edad_inicial", "ha"]
+    bos_names = ["rid", "mid", "edad_inicial", "ha"] #aprender hacer formato decente 
     bos = np.array([tuple(r[k] for k in bos_names) for r in rodales])
     np.savetxt("bosque.csv", bos, delimiter=",", header=",".join(bos_names), comments="")
 
 
 def generate():
+    """Genera los rodales con las biomasas generadas por cada año, dependiendo de su manejo y edad de crecimiento """
     rodales = []
     for r in range(config["rodales"]):
         model = rng.choice(models)
@@ -184,7 +190,7 @@ def generate():
                 if cosecha not in edades:
                     print(f"skipping: {e0=} !< {cosecha=} !< {e1=}")
                     continue
-                edades_manejo = edades % cosecha
+                edades_manejo = edades % cosecha 
                 manejo = {
                     "cosecha": cosecha,
                     "raleo": -1,
