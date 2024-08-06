@@ -31,7 +31,6 @@ from itertools import product
 
 import numpy as np
 from IPython.display import display
-#display = print
 np.set_printoptions(precision=1)
 
 #with open("config.toml", "rb") as f:
@@ -63,8 +62,8 @@ models = np.genfromtxt(
 # models[ models['next'] !=-1 ]['id']
 # OJO -1 is assigned by default
 
-
-def plot_models(horizon:int=40 , show=True, save=False):
+ 
+def plot_models(horizon:int=40  , show=True, save=False):
     """Crea geafico con los calculos de biomasa por cada id del arbol eje x igual al año y eje y igual a la biomasa"""
     import matplotlib.pyplot as plt
 
@@ -74,7 +73,7 @@ def plot_models(horizon:int=40 , show=True, save=False):
         x = np.linspace(0, horizon, (horizon - 0) * 2)
         y = model["α"] * x ** model["β"] + model["γ"]
         ax.plot(x, y, label=model["id"])
-    ax.axhline(0, color="black", linestyle="--")
+    ax.axhline(0, color="black", linestyle="--") 
     ax.legend()
     if show:
         plt.show()
@@ -83,6 +82,7 @@ def plot_models(horizon:int=40 , show=True, save=False):
 
 
 def solve_numeric():
+    """resolver numericamente los zeros de cada ecuación de crecimiento"""
     from scipy.optimize import fsolve  
 
     zeros = []
@@ -93,6 +93,7 @@ def solve_numeric():
 
 
 def solve_symbolic():
+    """calcula el zeros simbolico de la ecuacion de biomasa"""
     from sympy import solve, symbols
 
     x, α, β, γ = symbols("x α β γ")
@@ -106,6 +107,7 @@ def solve_symbolic():
 
 
 def append_zeros():
+    """agregar zeros a los modelos"""
     global models
     import numpy.lib.recfunctions as rfn
 
@@ -126,8 +128,30 @@ def calc_biomass(model: np.void, e: int) -> float:
     return max(model["α"] * e ** model["β"] + model["γ"], 0)
 
 
+def generar_codigo_kitral(Especie: str, edad: int, condición: str) -> str:
+    """Genera un diccionario de códigos Kitral basado en la Especie, edad y condición"""
+    key = (Especie, edad, condición)
+    if key[0] == "pino":
+        if key[1] <= 3:
+            value = "PL01"
+        elif 3 < key[1] <= 11:
+            value = "PL05" if key[2] == "con manejo" else "PL02"
+        elif 11 < key[1] <= 17:
+            value = "PL06" if key[2] == "con manejo" else "PL03"
+        else:
+            value = "PL07" if key[2] == "con manejo" else "PL04"
+    else:  # Eucalyptus
+        if key[1] <= 3:
+            value = "PL08"
+        elif 3 < key[1] <= 10:
+            value = "PL09"
+        else:
+            value = "PL10"
+    return value
+
+
 def print_manejos_possibles():
-    """imprime todos los posibles manejos para los rodales"""
+    """imprime todos los manejos posibles para los rodales"""
     print("manejos posibles", end=": ")
     for cosecha, raleo in product(np.arange(*config["random"]["cosechas"]), np.arange(*config["random"]["raleos"])):
         if raleo > cosecha:
@@ -137,23 +161,28 @@ def print_manejos_possibles():
 
 
 def write(rodales):
-    """Crea los csv con los datos de las biomasas calcula"""
+    """Crea los csv de salida, con la biomasa, eventos, biomasa vendible y codigos de kitral"""
     bm = np.array([manejo["biomass"] for rodal in rodales for manejo in rodal["manejos"]])
     ev = np.array([manejo["eventos"] for rodal in rodales for manejo in rodal["manejos"]])
+    vd = np.array([manejo["vendible"] for rodal in rodales for manejo in rodal["manejos"]])
+    kt = np.array([manejo["cod_kitral"] for rodal in rodales for manejo in rodal["manejos"]])
     names = ",".join(
         [f"R{rodal['rid']}_c{manejo['cosecha']}_r{manejo['raleo']}" for rodal in rodales for manejo in rodal["manejos"]]
     )
     names = names.replace("_r-1", "").replace("_c-1", "")
     np.savetxt("biomass.csv", bm.T, delimiter=",", header=names, comments="")
     np.savetxt("events.csv", ev.T, delimiter=",", header=names, comments="", fmt="%s")
+    np.savetxt("vendible.csv", vd.T, delimiter=",", header=names, comments="")
+    np.savetxt("cod_kitral.csv", kt.T, delimiter=",", header=names, comments="",fmt="%s")
+
 
     bos_names = ["rid", "mid", "edad_inicial", "ha"] #aprender hacer formato decente 
     bos = np.array([tuple(r[k] for k in bos_names) for r in rodales])
-    np.savetxt("bosque.csv", bos, delimiter=",", header=",".join(bos_names), comments="")
+    np.savetxt("bosque.csv", bos, delimiter=",", header=",".join(bos_names), comments="",fmt="%d")
 
 
 def generate():
-    """Genera los rodales con las biomasas generadas por cada año, dependiendo de su manejo y edad de crecimiento """
+    """Genera los rodales con las biomasas generadas por cada año, dependiendo de su manejo y edad de crecimiento, junto con la biomasa para vender y el codigo kitral"""
     rodales = []
     for r in range(config["rodales"]):
         model = rng.choice(models)
@@ -169,6 +198,7 @@ def generate():
             "edad_final": e1,
             "edades": edades,
             "ha": ha,
+            "Especie": model["Especie"]
         }
         rodales += [rodal]
         display(rodal)
@@ -182,6 +212,8 @@ def generate():
                 "raleo": -1,
                 "biomass": ha * np.array([calc_biomass(model, e) for e in edades]),
                 "eventos": ["" for e in edades],
+                "vendible":[0 for e in edades],
+                "cod_kitral":[generar_codigo_kitral(model["Especie"],e,"sin manejo") for e in edades],
             }
             manejos += [manejo]
             display(manejo)
@@ -197,6 +229,8 @@ def generate():
                     "biomass": ha * np.array([calc_biomass(model, e) for e in edades_manejo]),
                     "edades": edades_manejo,
                     "eventos": ["c" if e == 0 else "" for e in edades_manejo],
+                    "vendible":ha * np.array([calc_biomass(model,cosecha) if e ==0 else 0 for e in edades_manejo]),
+                    "cod_kitral":[generar_codigo_kitral(model["Especie"],cosecha,"sin manejo") if e == 0  else generar_codigo_kitral(model["Especie"],e,"sin manejo") for e in edades_manejo],
                 }
                 manejos += [manejo]
                 display(manejo)
@@ -216,6 +250,8 @@ def generate():
                         ]
                     ),
                     "eventos": ["r" if e == raleo else "" for e in edades],
+                    "vendible":ha * np.array([(calc_biomass(model,raleo)-calc_biomass(models[model["next"]],raleo)) if e ==raleo else 0 for e in edades]),
+                    "cod_kitral":[generar_codigo_kitral(model["Especie"],int(e),"sin manejo") if e < raleo else generar_codigo_kitral(model["Especie"],int(e),"con manejo") for e in edades],
                 }
                 manejos += [manejo]
                 display(manejo)
@@ -230,20 +266,26 @@ def generate():
                 mods = [model["id"] if e <= raleo else model["next"] for e in edades_manejo]
                 print(f"{mods=}")
                 eventos = []
+                vendible = []
                 for e in edades_manejo:
                     if e == raleo:
                         eventos += ["r"]
+                        vendible += [(calc_biomass(model,raleo)-calc_biomass(models[model["next"]],raleo))]
                         # [f"m{mods[e-1]}-r->m{mods[e]}" for e in edades_manejo] e-1 in edades ?
                     elif e == 0:
                         eventos += ["c"]
+                        vendible +=  [calc_biomass(models[model["next"]],cosecha)]
                     else:
                         eventos += [""]
+                        vendible += [0]
                 manejo = {
                     "cosecha": cosecha,
                     "raleo": raleo,
                     "biomass": ha * np.array([calc_biomass(models[m], e) for m, e in zip(mods, edades_manejo)]),
                     "edades": edades_manejo,
                     "eventos": eventos,
+                    "vendible": ha * np.array(vendible),
+                    "cod_kitral":[generar_codigo_kitral(model["Especie"],e,"con manejo") if e >= raleo else  generar_codigo_kitral(model["Especie"],cosecha,"con manejo") if e == 0  else generar_codigo_kitral(model["Especie"],e,"sin manejo") for e in edades_manejo],
                 }
                 manejos += [manejo]
                 display(manejo)
@@ -251,6 +293,7 @@ def generate():
         # display(manejos)
     # display(rodales)
     return rodales
+    
 
 
 def superpro():
