@@ -140,25 +140,27 @@ def calc_biomass(model: np.void, e: int) -> float:
     return max(model["α"] * e ** model["β"] + model["γ"], 0)
 
 
-def generar_codigo_kitral(Especie: str, edad: int, condición: str) -> str:
+def generar_codigo_kitral(especie: str, edad: int, condicion: str) -> str:
     """Genera un diccionario de códigos Kitral basado en la Especie, edad y condición"""
-    key = (Especie, edad, condición)
-    if key[0] == "pino":
-        if key[1] <= 3:
+    if especie == "pino":
+        if edad <= 3:
             value = "PL01"
-        elif 3 < key[1] <= 11:
-            value = "PL05" if key[2] == "con manejo" else "PL02"
-        elif 11 < key[1] <= 17:
-            value = "PL06" if key[2] == "con manejo" else "PL03"
+        elif 3 < edad <= 11:
+            value = "PL05" if condicion == "con manejo" else "PL02"
+        elif 11 < edad <= 17:
+            value = "PL06" if condicion == "con manejo" else "PL03"
         else:
-            value = "PL07" if key[2] == "con manejo" else "PL04"
-    else:  # Eucalyptus
-        if key[1] <= 3:
+            value = "PL07" if condicion == "con manejo" else "PL04"
+    elif especie == "eucalyptus":  # Eucalyptus
+        if edad <= 3:
             value = "PL08"
-        elif 3 < key[1] <= 10:
+        elif 3 < edad <= 10:
             value = "PL09"
         else:
             value = "PL10"
+    else:
+        print("error, especie desconocida")
+        return
     return value
 
 
@@ -209,7 +211,6 @@ def generate():
             "edad_final": e1,
             "edades": edades,
             "ha": ha,
-            "Especie": model["Especie"],
         }
         rodales += [rodal]
         display(rodal)
@@ -281,9 +282,9 @@ def generate():
                     ),
                     "cod_kitral": [
                         (
-                            generar_codigo_kitral(model["Especie"], int(e), "sin manejo")
+                            generar_codigo_kitral(model["Especie"], e, "sin manejo")
                             if e < raleo
-                            else generar_codigo_kitral(model["Especie"], int(e), "con manejo")
+                            else generar_codigo_kitral(model["Especie"], e, "con manejo")
                         )
                         for e in edades
                     ],
