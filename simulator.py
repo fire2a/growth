@@ -26,18 +26,29 @@ GLOBALS:
     - models: modelos de crecimiento leidos de tabla.csv
     - rng: generador de números aleatorios: ojo con la semilla
 """
-import toml
+import sys
 from itertools import product
 
 import numpy as np
-from IPython.display import display
-#display = print
+
 np.set_printoptions(precision=1)
 
-#with open("config.toml", "rb") as f:
-#    config = toml.load(f)
-#    display(f"{config=}")
-config=toml.load("config.toml")
+if "IPython" in sys.modules:
+    from IPython.display import display
+else:
+    # Here be dragons
+    display = print
+
+if sys.version_info >= (3, 11):
+    import tomllib
+
+    with open("config.toml", "rb") as f:
+        config = tomllib.load(f)
+else:
+    import toml
+
+    config = toml.load("config.toml")
+display(f"{config=}")
 
 
 # reproducible
