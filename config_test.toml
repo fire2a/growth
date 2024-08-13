@@ -1,13 +1,14 @@
-horizonte = 10
+horizonte = 15
 rodales = 15
-
+[datos]
 [random]
 seed = 17 # random number generator seed
 # min, max
-edades = [0, 30]
+edades = [0, 18]
 has = [5, 15]
 # min, max, step
 podas = [5, 15, 5]
-raleos = [6, 15]
-cosechas = [13, 30, 4]
+raleos = [6, 10,2]
+cosechas_p = [18, 30, 4]
+cosechas_e = [8, 20,4]
 
