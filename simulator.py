@@ -30,6 +30,8 @@ import sys
 from itertools import product
 
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 
 np.set_printoptions(precision=1)
 
@@ -166,14 +168,26 @@ def generar_codigo_kitral(especie: str, edad: int, condicion: str) -> str:
 
 def print_manejos_possibles():
     """imprime todos los manejos posibles para los rodales"""
+    manejos_posibles = []
     print("manejos posibles", end=": ")
     for cosecha, raleo in product(np.arange(*config["random"]["cosechas_p"]), np.arange(*config["random"]["raleos"])):
         if raleo > cosecha:
             continue
         print(f"(c{cosecha}, r{raleo})", end=", ")
+        manejos_posibles.append([int(raleo), int(cosecha)])
     for cosecha in np.arange(*config["random"]["cosechas_e"]):
+        print(f"(c{int(cosecha)}, r{-1})", end=", ")
+        manejos_posibles.append([-1, int(cosecha)])
+    for cosecha in np.arange(*config["random"]["cosechas_p"]):
         print(f"(c{cosecha}, r{-1})", end=", ")
+        manejos_posibles.append([-1, int(cosecha)])
+
+    for raleo in np.arange(*config["random"]["raleos"]):
+        print(f"(c{-1}, r{raleo})", end=", ")
+        manejos_posibles.append([int(raleo), -1])
+
     print()
+    return manejos_posibles
 
 
 def write(rodales):
@@ -217,7 +231,10 @@ def generate2():
         rodales += [rodal]
         display(rodal)
         manejos = []
-        has_cosecha = any(np.isin(np.arange(*config["random"]["cosechas"]), edades))
+        if model["Especie"] == "pino":
+            has_cosecha = any(np.isin(np.arange(*config["random"]["cosechas_p"]), edades))
+        else:
+            has_cosecha = any(np.isin(np.arange(*config["random"]["cosechas_e"]), edades))
         has_raleo = (model["next"] != -1) and any(np.isin(np.arange(*config["random"]["raleos"]), edades))
         # print(f"{r=}, {has_cosecha=}, {has_raleo=}")
         if not has_cosecha and not has_raleo:
@@ -232,7 +249,11 @@ def generate2():
             manejos += [manejo]
             display(manejo)
         elif has_cosecha and not has_raleo:
-            for cosecha in np.arange(*config["random"]["cosechas"]):
+            if model["Especie"] == "pino":
+                cos = config["random"]["cosechas_p"]
+            else:
+                cos = config["random"]["cosechas_e"]
+            for cosecha in np.arange(*cos):
                 if cosecha not in edades:
                     print(f"skipping: {e0=} !< {cosecha=} !< {e1=}")
                     continue
@@ -295,10 +316,10 @@ def generate2():
                 display(manejo)
         else:
             for cosecha, raleo in product(
-                np.arange(*config["random"]["cosechas"]), np.arange(*config["random"]["raleos"])
+                np.arange(*config["random"]["cosechas_p"]), np.arange(*config["random"]["raleos"])
             ):
                 edades_manejo = edades % cosecha
-                if (raleo >= cosecha) or (cosecha not in edades) or (raleo not in edades_manejo):
+                if (raleo >= cosecha) or (cosecha not in edades) or (raleo not in edades):
                     print(f"skipping: {min(edades_manejo)=} !< {raleo=} !< {cosecha=} !< {e1=}")
                     continue
                 mods = [model["id"] if e <= raleo else model["next"] for e in edades_manejo]
@@ -347,8 +368,12 @@ def generate2():
 def generate():
     """Genera los rodales con las biomasas generadas por cada año, dependiendo de su manejo y edad de crecimiento, junto con la biomasa para vender y el codigo kitral"""
     rodales = []
+    exclude_ids = [22, 23, 23, 27, 30, 31]
+    # Filtrar para excluir los modelos con ids en exclude_ids
+    filtered_models = [m for m in models if m["id"] not in exclude_ids]
+
     for r in range(config["rodales"]):
-        model = rng.choice(models)
+        model = rng.choice(filtered_models)
         # print(model)
         e0 = rng.integers(*config["random"]["edades"])
         e1 = e0 + config["horizonte"]
@@ -525,9 +550,38 @@ def superpro():
         config, models, rodales = pickle.load(f)
 
 
+def simula_tabla():
+    df = pd.read_csv("new_table.csv")
+    # FIXME : comentar proxima linea
+
+    # para cada modelo, calcular biomasa hasta horizonte, retorna filas
+    df_all = df.apply(
+        lambda row: (
+            pd.Series([calc_biomass(row, e) for e in range(15)]) if row["Especie"] == "pino" else pd.Series([None] * 15)
+        ),
+        axis=1,
+    )
+    # transponer, una columna un model
+    df_alt = df_all.T
+    df_pino = df[df["Especie"] == "pino"]
+    pino_alt = df_pino.T
+
+    # graficar
+    names = ["Especie", "Zona", "DensidadInicial", "SiteIndex", "Manejo", "Condicion"]
+    axes = df_alt.plot()
+    box = axes.get_position()
+    axes.set_position([box.x0, box.y0, box.width * 0.5, box.y0 + box.height])
+    # legend_labels = [str(list(df.set_index('id').loc[col][names].to_dict().values())) for col in df_alt.columns]
+    legend_labels = [df_pino.loc[col][names].to_dict() for col in pino_alt.columns]
+    plt.legend(legend_labels, loc="center left", bbox_to_anchor=(1, 0.5))
+    plt.savefig("tabla2.png")
+    # plt.show()
+
+
 def main():
     print(__doc__)
     print_manejos_possibles()
+    simula_tabla()
 
 
 if __name__ == "__main__":
