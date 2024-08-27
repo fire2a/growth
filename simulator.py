@@ -102,7 +102,7 @@ def solve_numeric():
     zeros = []
     for model in models:
         zeros += [fsolve(lambda x: model["α"] * x ** model["β"] + model["γ"], config["horizonte"])[0]]
-    print(f"numeric_{zeros=}")
+    display(f"numeric_{zeros=}")
     return zeros
 
 
@@ -111,12 +111,12 @@ def solve_symbolic():
     from sympy import solve, symbols
 
     x, α, β, γ = symbols("x α β γ")
-    print(solve(α * x**β + γ, x))
+    display(solve(α * x**β + γ, x))
     # [(-γ/α)**(1/β)]
     zeros = []
     for model in models:
         zeros += [(-model["γ"] / model["α"]) ** (1 / model["β"])]
-    print(f"symbolic_{zeros=}")
+    display(f"symbolic_{zeros=}")
     return zeros
 
 
@@ -257,6 +257,7 @@ def generate():
         # print(f"{r=}, {has_cosecha=}, {has_raleo=}")
         if not has_cosecha and not has_raleo:
             manejo = {
+                "rid": r,
                 "cosecha": -1,
                 "raleo": -1,
                 "biomass": ha * np.array([calc_biomass(model, e) for e in edades]),
@@ -273,10 +274,11 @@ def generate():
                 cos = config["random"]["cosechas_e"]
             for cosecha in np.arange(*cos):
                 if cosecha not in edades:
-                    print(f"skipping: {e0=} !< {cosecha=} !< {e1=}")
+                    display(f"skipping: {e0=} !< {cosecha=} !< {e1=}")
                     continue
                 edades_manejo = edades % cosecha
                 manejo = {
+                    "rid": r,
                     "cosecha": cosecha,
                     "raleo": -1,
                     "biomass": ha * np.array([calc_biomass(model, e) for e in edades_manejo]),
@@ -297,9 +299,10 @@ def generate():
         elif not has_cosecha and has_raleo:
             for raleo in np.arange(*config["random"]["raleos"]):
                 if raleo not in edades:
-                    print(f"skipping: {e0=} !< {raleo=} !< {e1=}")
+                    display(f"skipping: {e0=} !< {raleo=} !< {e1=}")
                     continue
                 manejo = {
+                    "rid": r,
                     "cosecha": -1,
                     "raleo": raleo,
                     "biomass": ha
@@ -338,17 +341,16 @@ def generate():
             ):
                 edades_manejo = edades % cosecha
                 if (raleo >= cosecha) or (cosecha not in edades) or (raleo not in edades_manejo):
-                    print(f"skipping: {min(edades_manejo)=} !< {raleo=} !< {cosecha=} !< {e1=}")
+                    display(f"skipping: {min(edades_manejo)=} !< {raleo=} !< {cosecha=} !< {e1=}")
                     continue
                 mods = [model["id"] if e <= raleo else model["next"] for e in edades_manejo]
-                print(f"{mods=}")
+                display(f"{mods=}")
                 eventos = []
                 vendible = []
                 for e in edades_manejo:
                     if e == raleo:
                         eventos += ["r"]
                         vendible += [(calc_biomass(model, raleo) - calc_biomass(models[model["next"]], raleo))]
-                        # [f"m{mods[e-1]}-r->m{mods[e]}" for e in edades_manejo] e-1 in edades ?
                     elif e == 0:
                         eventos += ["c"]
                         vendible += [calc_biomass(models[model["next"]], cosecha)]
@@ -356,6 +358,7 @@ def generate():
                         eventos += [""]
                         vendible += [0]
                 manejo = {
+                    "rid": r,
                     "cosecha": cosecha,
                     "raleo": raleo,
                     "biomass": ha * np.array([calc_biomass(models[m], e) for m, e in zip(mods, edades_manejo)]),
@@ -426,7 +429,6 @@ def simula_tabla():
 def main():
     print(__doc__)
     print_manejos_possibles()
-    simula_tabla()
 
 
 if __name__ == "__main__":
