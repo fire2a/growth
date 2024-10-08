@@ -436,34 +436,6 @@ def superpro():
         config, models, rodales = pickle.load(f)
 
 
-def simula_tabla():
-    df = pd.read_csv("tabla.csv")
-    # FIXME : comentar proxima linea
-
-    # para cada modelo, calcular biomasa hasta horizonte, retorna filas
-    df_all = df.apply(
-        lambda row: (
-            pd.Series([calc_biomass(row, e) for e in range(15)]) if row["Especie"] == "pino" else pd.Series([None] * 15)
-        ),
-        axis=1,
-    )
-    # transponer, una columna un model
-    df_alt = df_all.T
-    df_pino = df[df["Especie"] == "pino"]
-    pino_alt = df_pino.T
-
-    # graficar
-    names = ["Especie", "Zona", "DensidadInicial", "SiteIndex", "Manejo", "Condicion"]
-    axes = df_alt.plot()
-    box = axes.get_position()
-    axes.set_position([box.x0, box.y0, box.width * 0.5, box.y0 + box.height])
-    # legend_labels = [str(list(df.set_index('id').loc[col][names].to_dict().values())) for col in df_alt.columns]
-    legend_labels = [df_pino.loc[col][names].to_dict() for col in pino_alt.columns]
-    plt.legend(legend_labels, loc="center left", bbox_to_anchor=(1, 0.5))
-    plt.savefig("tabla2.png")
-    # plt.show()
-
-
 def main():
     print(__doc__)
     print_manejos_possibles()

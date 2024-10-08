@@ -1,8 +1,6 @@
 horizonte = 10
 rodales = 36
 [datos]
-edad
-ha
 w = 6 # ancho matriz 
 h = 6 # alto matriz
 xllcorner = 457900 # punto georeferencial x
