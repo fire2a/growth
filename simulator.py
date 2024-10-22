@@ -187,7 +187,18 @@ def generate():
         }
         rodales += [rodal]
         display(rodal)
-        manejos = []
+        manejos = [
+            {
+                "rid": r,
+                "cosecha": -1,
+                "raleo": -1,
+                "biomass": ha * np.array([calc_biomass(model, e) for e in edades]),
+                "edades": edades,
+                "eventos": ["" for e in edades],
+                "vendible": [0 for e in edades],
+                "codigo_kitral": [generar_codigo_kitral(model["Especie"], e, "sin manejo") for e in edades],
+            }
+        ]
 
         # has cosecha if any of the proposed "cosechas" ranges are in the simulated "edades"
         has_cosecha = any(np.isin(np.arange(*config[model["Especie"]]["cosechas"]), edades))
@@ -214,21 +225,12 @@ def generate():
 
         print(f"{r=}, {has_cosecha=}, {has_raleo=}")
         # 4 cases combinations of "has_cosecha" and "has_raleo"
+        # 1 no hacer nada
         if not has_cosecha and not has_raleo:
-            manejo = {
-                "rid": r,
-                "cosecha": -1,
-                "raleo": -1,
-                "biomass": ha * np.array([calc_biomass(model, e) for e in edades]),
-                "edades": edades,
-                "eventos": ["" for e in edades],
-                "vendible": [0 for e in edades],
-                "codigo_kitral": [generar_codigo_kitral(model["Especie"], e, "sin manejo") for e in edades],
-            }
-            manejos = [manejo]
-            display(manejo)
+            # ver definicion de manejos
+            display(manejos)
+        # 2
         elif has_cosecha and not has_raleo:
-            manejos = []
             # iterb = iter(np.arange(*config[model["Especie"]]["cosechas"]))
             # cosecha = next(iterb)
             for cosecha in np.arange(*config[model["Especie"]]["cosechas"]):
@@ -255,8 +257,8 @@ def generate():
                 }
                 manejos += [manejo]
                 display(manejo)
+        # 3
         elif not has_cosecha and has_raleo:
-            manejos = []
             # iterc = iter(np.arange(*config[model["Especie"]]["raleos"]))
             # raleo = next(iterc)
             for raleo in np.arange(*config[model["Especie"]]["raleos"]):
@@ -298,8 +300,8 @@ def generate():
                 }
                 manejos += [manejo]
                 display(manejo)
+        # 4
         else:  # has cosecha and raleo, se asume que se raleo antes del periodo 0 en calc_biomass
-            manejos = []
             # iterd = iter(
             #     product(
             #         np.arange(*config[model["Especie"]]["cosechas"]), np.arange(*config[model["Especie"]]["raleos"])
