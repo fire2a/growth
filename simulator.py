@@ -183,7 +183,6 @@ def generate():
             "mid": model["id"],
             "edad_inicial": e0,
             "edad_final": e1,
-            # "edades": edades, -> adentro de manejos
             "ha": ha,
         }
         rodales += [rodal]
