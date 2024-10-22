@@ -112,7 +112,7 @@ def generar_codigo_kitral(especie: str, edad: int, condicion: str) -> str:
             value = 28
     else:
         print("error, especie desconocida")
-        return
+        return -9999  # mala practica cambiar el tipo de retorno
     return value
 
 
