@@ -180,7 +180,7 @@ def generate():
             "mid": model["id"],
             "edad_inicial": e0,
             "edad_final": e1,
-            "edades": edades,
+            # "edades": edades, -> adentro de manejos
             "ha": ha,
         }
         rodales += [rodal]
@@ -217,6 +217,7 @@ def generate():
                 "cosecha": -1,
                 "raleo": -1,
                 "biomass": ha * np.array([calc_biomass(model, e) for e in edades]),
+                "edades": edades,
                 "eventos": ["" for e in edades],
                 "vendible": [0 for e in edades],
                 "codigo_kitral": [generar_codigo_kitral(model["Especie"], e, "sin manejo") for e in edades],
@@ -290,6 +291,7 @@ def generate():
                             for e in edades
                         ]
                     ),
+                    "edades": edades,
                     "eventos": ["r" if e == raleo else "" for e in edades],
                     "vendible": ha
                     * np.array(
