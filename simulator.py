@@ -163,12 +163,13 @@ def write(rodales):
 def generate():
     """Genera los rodales con las biomasas generadas por cada año, dependiendo de su manejo y edad de crecimiento, junto con la biomasa para vender y el codigo kitral"""
     rodales = []
-    exclude_ids = [22, 23, 23, 27, 30, 31]
+    exclude_ids = [22, 23, 26, 27, 30, 31]
     # Filtrar para excluir los modelos con ids en exclude_ids
     filtered_models = [m for m in models if m["id"] not in exclude_ids]
 
     for r in range(config["rodales"]):
         model = rng.choice(filtered_models)
+        # model = rng.choice(models)
         # print(model)
         e0 = rng.integers(*config["random"]["edades"])
         e1 = e0 + config["horizonte"]
