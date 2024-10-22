@@ -211,6 +211,7 @@ def generate():
             else:
                 # adjust "edades" -> "edades_manejo", by periodically "cosecha" (to harvest) via modulus operator
                 # then check if raleo is in range
+                has_raleo = False
                 for cosecha in np.arange(*config["pino"]["cosechas"]):
                     edades_manejo = edades % cosecha
                     has_raleo = (model["next"] != -1) and any(
@@ -219,7 +220,6 @@ def generate():
                     print(cosecha, np.arange(*config["pino"]["raleos"]), edades_manejo, has_raleo)
                     if has_raleo:
                         break
-                has_raleo = False
         else:
             has_raleo = False
 
