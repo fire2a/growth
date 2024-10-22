@@ -222,7 +222,7 @@ def generate():
                 "vendible": [0 for e in edades],
                 "codigo_kitral": [generar_codigo_kitral(model["Especie"], e, "sin manejo") for e in edades],
             }
-            manejos += [manejo]
+            manejos = [manejo]
             display(manejo)
         elif has_cosecha and not has_raleo:
             manejo = {
