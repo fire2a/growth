@@ -166,7 +166,8 @@ def generate():
     exclude_ids = [22, 23, 26, 27, 30, 31]
     # Filtrar para excluir los modelos con ids en exclude_ids
     filtered_models = [m for m in models if m["id"] not in exclude_ids]
-
+    # itera = iter(range(config["rodales"]))
+    # r = next(itera)
     for r in range(config["rodales"]):
         model = rng.choice(filtered_models)
         # model = rng.choice(models)
@@ -210,7 +211,8 @@ def generate():
         else:
             has_raleo = False
 
-        # print(f"{r=}, {has_cosecha=}, {has_raleo=}")
+        print(f"{r=}, {has_cosecha=}, {has_raleo=}")
+        # 4 cases combinations of "has_cosecha" and "has_raleo"
         if not has_cosecha and not has_raleo:
             manejo = {
                 "rid": r,
@@ -226,6 +228,8 @@ def generate():
             display(manejo)
         elif has_cosecha and not has_raleo:
             manejos = []
+            # iterb = iter(np.arange(*config[model["Especie"]]["cosechas"]))
+            # cosecha = next(iterb)
             for cosecha in np.arange(*config[model["Especie"]]["cosechas"]):
                 if cosecha not in edades:  # edades_manejo mejor que edades ?
                     display(f"skipping: {e0=} !< {cosecha=} !< {e1=}")
@@ -252,6 +256,8 @@ def generate():
                 display(manejo)
         elif not has_cosecha and has_raleo:
             manejos = []
+            # iterc = iter(np.arange(*config[model["Especie"]]["raleos"]))
+            # raleo = next(iterc)
             for raleo in np.arange(*config[model["Especie"]]["raleos"]):
                 if raleo not in edades:
                     display(f"skipping: {e0=} !< {raleo=} !< {e1=}")
@@ -293,6 +299,12 @@ def generate():
                 display(manejo)
         else:  # has cosecha and raleo, se asume que se raleo antes del periodo 0 en calc_biomass
             manejos = []
+            # iterd = iter(
+            #     product(
+            #         np.arange(*config[model["Especie"]]["cosechas"]), np.arange(*config[model["Especie"]]["raleos"])
+            #     )
+            # )
+            # cosecha, raleo = next(iterd)
             for cosecha, raleo in product(
                 np.arange(*config[model["Especie"]]["cosechas"]), np.arange(*config[model["Especie"]]["raleos"])
             ):
