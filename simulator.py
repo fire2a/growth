@@ -225,10 +225,6 @@ def generate():
             manejos += [manejo]
             display(manejo)
         elif has_cosecha and not has_raleo:
-            if model["Especie"] == "pino":
-                cos = config["pino"]["cosechas"]
-            else:
-                cos = config["eucalyptus"]["cosechas"]
             manejo = {
                 "rid": r,
                 "cosecha": -1,
@@ -240,8 +236,8 @@ def generate():
             }
             manejos += [manejo]
             display(manejo)
-            for cosecha in np.arange(*cos):
-                if cosecha not in edades:
+            for cosecha in np.arange(*config[model["Especie"]]["cosechas"]):
+                if cosecha not in edades:  # edades_manejo mejor que edades ?
                     display(f"skipping: {e0=} !< {cosecha=} !< {e1=}")
                     continue
                 edades_manejo = edades % cosecha
@@ -276,7 +272,7 @@ def generate():
             }
             manejos += [manejo]
             display(manejo)
-            for raleo in np.arange(*config["pino"]["raleos"]):
+            for raleo in np.arange(*config[model["Especie"]]["raleos"]):
                 if raleo not in edades:
                     display(f"skipping: {e0=} !< {raleo=} !< {e1=}")
                     continue
@@ -327,7 +323,9 @@ def generate():
             }
             manejos += [manejo]
             display(manejo)
-            for cosecha, raleo in product(np.arange(*config["pino"]["cosechas"]), np.arange(*config["pino"]["raleos"])):
+            for cosecha, raleo in product(
+                np.arange(*config[model["Especie"]]["cosechas"]), np.arange(*config[model["Especie"]]["raleos"])
+            ):
                 edades_manejo = edades % cosecha
                 if (raleo >= cosecha) or (cosecha not in edades) or (raleo not in edades_manejo):
                     display(f"skipping: {min(edades_manejo)=} !< {raleo=} !< {cosecha=} !< {e1=}")
