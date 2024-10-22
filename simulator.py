@@ -344,9 +344,7 @@ def generate():
                             generar_codigo_kitral(model["Especie"], e, "con manejo")
                             if e >= raleo
                             else (
-                                generar_codigo_kitral(
-                                    model["Especie"], cosecha, "con manejo"
-                                )  # FIJO en cosecha ENTRE 1..raleo ?
+                                generar_codigo_kitral(model["Especie"], cosecha, "con manejo")
                                 if e == 0
                                 else generar_codigo_kitral(model["Especie"], e, "sin manejo")
                             )
