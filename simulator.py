@@ -30,7 +30,7 @@ Variables globales:
 """
 import sys
 from itertools import product
-import math
+
 import numpy as np
 
 np.set_printoptions(precision=1)
@@ -78,16 +78,16 @@ models = np.genfromtxt(
 
 
 def calc_biomass(model: np.void, e: int) -> float:
-    """calcular la biomasa para un model y una edad"""
-    """if model["zero"] < 1:
-        return max(model["α"] * e ** model["β"] + model["γ"], 0)"""
-
+    """calcular la biomasa para un model y una edad
+    Si la edad es menor que el zero del model, se redondea hacia arriba la edad donde es cero y
+    Se pondera linealmente
+    """
     if e < model["zero"]:
+        e_up = np.ceil(model["zero"])
         return max(
-            e * (model["α"] * (math.ceil(model["zero"])) ** model["β"] + model["γ"]) / (math.ceil(model["zero"])),
-            0,
+            e / e_up * (model["α"] * e_up ** model["β"] + model["γ"]),
+            0,  # demuestre que siempre es positivo
         )
-
     else:
         return max(model["α"] * e ** model["β"] + model["γ"], 0)
 
