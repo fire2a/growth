@@ -225,17 +225,7 @@ def generate():
             manejos = [manejo]
             display(manejo)
         elif has_cosecha and not has_raleo:
-            manejo = {
-                "rid": r,
-                "cosecha": -1,
-                "raleo": -1,
-                "biomass": ha * np.array([calc_biomass(model, e) for e in edades]),
-                "eventos": ["" for e in edades],
-                "vendible": [0 for e in edades],
-                "codigo_kitral": [generar_codigo_kitral(model["Especie"], e, "sin manejo") for e in edades],
-            }
-            manejos += [manejo]
-            display(manejo)
+            manejos = []
             for cosecha in np.arange(*config[model["Especie"]]["cosechas"]):
                 if cosecha not in edades:  # edades_manejo mejor que edades ?
                     display(f"skipping: {e0=} !< {cosecha=} !< {e1=}")
@@ -261,17 +251,7 @@ def generate():
                 manejos += [manejo]
                 display(manejo)
         elif not has_cosecha and has_raleo:
-            manejo = {
-                "rid": r,
-                "cosecha": -1,
-                "raleo": -1,
-                "biomass": ha * np.array([calc_biomass(model, e) for e in edades]),
-                "eventos": ["" for e in edades],
-                "vendible": [0 for e in edades],
-                "codigo_kitral": [generar_codigo_kitral(model["Especie"], e, "sin manejo") for e in edades],
-            }
-            manejos += [manejo]
-            display(manejo)
+            manejos = []
             for raleo in np.arange(*config[model["Especie"]]["raleos"]):
                 if raleo not in edades:
                     display(f"skipping: {e0=} !< {raleo=} !< {e1=}")
@@ -311,18 +291,8 @@ def generate():
                 }
                 manejos += [manejo]
                 display(manejo)
-        else:  # has cosecha and raleo, se asume que se raleo altes del periodo 0 en calc_biomass
-            manejo = {
-                "rid": r,
-                "cosecha": -1,
-                "raleo": -1,
-                "biomass": ha * np.array([calc_biomass(models[model["next"]], e) for e in edades]),
-                "eventos": ["" for e in edades],
-                "vendible": [0 for e in edades],
-                "codigo_kitral": [generar_codigo_kitral(model["Especie"], e, "con manejo") for e in edades],
-            }
-            manejos += [manejo]
-            display(manejo)
+        else:  # has cosecha and raleo, se asume que se raleo antes del periodo 0 en calc_biomass
+            manejos = []
             for cosecha, raleo in product(
                 np.arange(*config[model["Especie"]]["cosechas"]), np.arange(*config[model["Especie"]]["raleos"])
             ):
