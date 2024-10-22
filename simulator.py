@@ -1,15 +1,17 @@
-#!/usr/bin/env ipython
+#!/usr/bin/env python
 """
 Generador de rodales con distintos planes de manejo, crecimiento de acuerdo a modelos de crecimiento (tabla.csv)
 
 Uso:
     - editar config.toml
+    - ejecutar en consola: python simulator.py
     - ver: python -c "import simulator; simulator.generate()"
     - guardar: python -c "import simulator; rodales = simulator.generate(); simulator.write(rodales)"
 
 Interactive use:
     $ ipython
     In [1]: from simulator import *
+    In [2]: rodales = simulator.generate()
 
 Funciones principales:
     - calc_biomass: calcular la biomasa para un model y una edad
@@ -355,15 +357,15 @@ def generate():
                 manejos += [manejo]
                 display(manejo)
         rodal["manejos"] = manejos
-        # display(manejos)
-    # display(rodales)
+        display(manejos)
+    display(rodales)
     return rodales
 
 
 def main():
     print(__doc__)
-    print_manejos_possibles()
-    simula_tabla()
+    rodales = simulator.generate()
+    simulator.write(rodales)
 
 
 if __name__ == "__main__":
