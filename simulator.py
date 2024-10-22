@@ -309,7 +309,9 @@ def generate():
                 np.arange(*config[model["Especie"]]["cosechas"]), np.arange(*config[model["Especie"]]["raleos"])
             ):
                 edades_manejo = edades % cosecha
-                if (raleo >= cosecha) or (cosecha not in edades) or (raleo not in edades_manejo):
+                if (
+                    (raleo >= cosecha) or (cosecha not in edades) or (raleo not in edades_manejo)
+                ):  # edades_manejo mejor que edades ?
                     display(f"skipping: {min(edades_manejo)=} !< {raleo=} !< {cosecha=} !< {e1=}")
                     continue
                 mods = [model["id"] if e < raleo else model["next"] for e in edades_manejo]
