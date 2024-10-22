@@ -186,20 +186,29 @@ def generate():
         rodales += [rodal]
         display(rodal)
         manejos = []
-        if model["Especie"] == "pino":
-            has_cosecha = any(np.isin(np.arange(*config["pino"]["cosechas"]), edades))
-        else:
-            has_cosecha = any(np.isin(np.arange(*config["eucalyptus"]["cosechas"]), edades))
-        if not has_cosecha:
-            has_raleo = (model["next"] != -1) and any(np.isin(np.arange(*config["pino"]["raleos"]), edades))
-        else:  # has_cosecha
-            for cosecha, raleo in product(np.arange(*config["pino"]["cosechas"]), np.arange(*config["pino"]["raleos"])):
-                edades_manejo = edades % cosecha
-                has_raleo = (model["next"] != -1) and any(np.isin(np.arange(*config["pino"]["raleos"]), edades_manejo))
 
-                # Si hay raleo, detener la búsqueda
-                if has_raleo:
-                    break
+        # has cosecha if any of the proposed "cosechas" ranges are in the simulated "edades"
+        has_cosecha = any(np.isin(np.arange(*config[model["Especie"]]["cosechas"]), edades))
+
+        # can have raleo only if it's pino
+        if model["Especie"] == "pino":
+            if not has_cosecha:
+                # easy case
+                has_raleo = (model["next"] != -1) and any(np.isin(np.arange(*config["pino"]["raleos"]), edades))
+            else:
+                # adjust "edades" -> "edades_manejo", by periodically "cosecha" (to harvest) via modulus operator
+                # then check if raleo is in range
+                for cosecha in np.arange(*config["pino"]["cosechas"]):
+                    edades_manejo = edades % cosecha
+                    has_raleo = (model["next"] != -1) and any(
+                        np.isin(np.arange(*config["pino"]["raleos"]), edades_manejo)
+                    )
+                    print(cosecha, np.arange(*config["pino"]["raleos"]), edades_manejo, has_raleo)
+                    if has_raleo:
+                        break
+                has_raleo = False
+        else:
+            has_raleo = False
 
         # print(f"{r=}, {has_cosecha=}, {has_raleo=}")
         if not has_cosecha and not has_raleo:
