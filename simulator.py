@@ -1,37 +1,61 @@
 #!/usr/bin/env python
 """
-Generador de rodales con distintos planes de manejo, crecimiento de acuerdo a modelos de crecimiento (tabla.csv)
+Simulador de crecimiento de rodales con distintos planes de manejo, crecimiento de acuerdo a modelos de crecimiento (tabla.csv)
+
+Una ejecucion genera un lista de rodales (:dict) con sus manejos (:dict), biomasa, eventos, biomasa vendible y codigos de kitral fuel model
+
+    rodales = [ ...
+        {'rid': 9,           # rodal id
+         'mid': 24,          # model id
+         'edad_inicial': 17, 
+         'edad_final': 27, 
+         'ha': 14,
+         'manejos' : [ ... 
+            {'rid': 9,
+             'cosecha': 18,
+             'raleo': 6,
+             'biomass': array([2593., 0., 54.7, 76.9, 118.8, 182.7, 270.2, 40., 46.7, 53.4]),
+             'edades': array([17,  0,  1,  2,  3,  4,  5,  6,  7,  8]),
+             'eventos': ['', 'c', '', '', '', '', '', 'r', '', ''],
+             'vendible': array([0. , 2868.1, 0., 0., 0., 0., 0., 342.6, 0., 0.]),
+             'codigo_kitral': [24, 25, 19, 19, 19, 20, 20, 23, 23, 23]
+            }
+         ]
+        }
+    ]
 
 Uso:
-    - editar config.toml
-    - ejecutar en consola: python simulator.py
-    - ver: python -c "import simulator; simulator.generate()"
-    - guardar: python -c "import simulator; rodales = simulator.generate(); simulator.write(rodales)"
+    - crear/editar config.toml
+    - ejecutar en consola: 
+       python simulator.py --help
+       python simulator.py other_config.toml
+       ipython simulator.py
 
-Interactive use:
+Scripting/Interactive use:
     $ ipython
-    In [1]: from simulator import *
-    In [2]: rodales = simulator.generate()
+    In [1]: import simulator
+    In [2]: rodales = simulator.main(['-s'])
 
 Funciones principales:
+    - generate: generar rodales con distintos planes de manejo (necesita config & models)
+    - get_models: leer modelos de crecimiento desde un archivo csv
+    - read_toml: leer configuración desde un archivo toml
     - calc_biomass: calcular la biomasa para un model y una edad
-    - print_manejos_possibles: imprimir los manejos posibles
+    - generar_codigo_kitral: generar un diccionario de códigos Kitral basado en la Especie, edad y condición
     - write: escribir archivos de salida
-    - generate: generar rodales con distintos planes de manejo
+    - print_manejos_possibles: imprimir los manejos posibles
 
-Funciones auxiliares:
+Funciones auxiliares (see auxiliary.py):
     - plot_models: graficar modelos de crecimiento
     - solve_numeric: resolver numericamente los zeros de cada ecuación de crecimiento
     - solve_symbolic: resolver simbolicamente la ecuación de crecimiento, calcular los zeros
     - append_zeros: agregar ceros a los modelos
 
-Variables globales:
-    - config: configuración leida de config.toml
-    - models: modelos de crecimiento leidos de tabla.csv
-    - rng: generador de números aleatorios: ojo con la semilla
+Notice: Numpy is set to print only one decimal digit
 """
 import sys
 from itertools import product
+from pathlib import Path
 
 import numpy as np
 
@@ -43,40 +67,30 @@ else:
     # Here be dragons
     display = print
 
-if sys.version_info >= (3, 11):
-    import tomllib
 
-    with open("config_test.toml", "rb") as f:
-        config = tomllib.load(f)
-else:
-    import toml
+def get_models(filepath="tabla.csv"):
+    """Read growth models from a csv file
 
-    config = toml.load("config.toml")
-display(f"{config=}")
+    Some handy introspections:
+    models.dtype.names
+    model.dtype.names
+    dict(zip(model.dtype.names,model))
 
+    id index from 0
+    models[ models['id'] == num ] == models[num]
 
-# reproducible
-rng = np.random.default_rng(config["random"]["seed"])
-# random
-# rng = np.random.default_rng()
-
-models = np.genfromtxt(
-    "tabla.csv",
-    delimiter=",",
-    names=True,  # id,next,Especie,Zona,DensidadInicial,SiteIndex,Manejo,Condicion,α,β,γ
-    dtype=None,
-    encoding="utf-8",
-)
-# models.dtype.names
-# model.dtype.names
-# dict(zip(model.dtype.names,model))
-
-# id index from 0
-# models[ models['id'] == num ] == models[num]
-
-# models with raleo
-# models[ models['next'] !=-1 ]['id']
-# OJO -1 is assigned by default
+    models with raleo
+    models[ models['next'] !=-1 ]['id']
+    OJO -1 is assigned by default
+    """
+    models = np.genfromtxt(
+        filepath,
+        delimiter=",",
+        names=True,  # id,next,Especie,Zona,DensidadInicial,SiteIndex,Manejo,Condicion,α,β,γ
+        dtype=None,
+        encoding="utf-8",
+    )
+    return models
 
 
 def calc_biomass(model: np.void, e: int) -> float:
@@ -94,7 +108,7 @@ def calc_biomass(model: np.void, e: int) -> float:
         return max(model["α"] * e ** model["β"] + model["γ"], 0)
 
 
-def generar_codigo_kitral(especie: str, edad: int, condicion: str) -> str:
+def generar_codigo_kitral(especie: str, edad: int, condicion: str) -> int:
     """Genera un diccionario de códigos Kitral basado en la Especie, edad y condición"""
     if especie == "pino":
         if edad <= 3:
@@ -114,12 +128,12 @@ def generar_codigo_kitral(especie: str, edad: int, condicion: str) -> str:
             value = 28
     else:
         print("error, especie desconocida")
-        return -9999  # mala practica cambiar el tipo de retorno
+        return -9999
     return value
 
 
-def print_manejos_possibles():
-    """imprime todos los manejos posibles para los rodales"""
+def print_manejos_possibles(config):
+    """Imprime todos los manejos posibles para los rodales"""
     manejos_posibles = []
     print("manejos posibles", end=": ")
     for cosecha, raleo in product(np.arange(*config["pino"]["cosechas"]), np.arange(*config["pino"]["raleos"])):
@@ -142,31 +156,32 @@ def print_manejos_possibles():
     return manejos_posibles
 
 
-def write(rodales):
-    """Crea los csv de salida, con la biomasa, eventos, biomasa vendible y codigos de kitral"""
-    bm = np.array([manejo["biomass"] for rodal in rodales for manejo in rodal["manejos"]])
-    ev = np.array([manejo["eventos"] for rodal in rodales for manejo in rodal["manejos"]])
-    vd = np.array([manejo["vendible"] for rodal in rodales for manejo in rodal["manejos"]])
-    kt = np.array([manejo["codigo_kitral"] for rodal in rodales for manejo in rodal["manejos"]])
-    names = ",".join(
-        [f"R{rodal['rid']}_c{manejo['cosecha']}_r{manejo['raleo']}" for rodal in rodales for manejo in rodal["manejos"]]
-    )
-    names = names.replace("_r-1", "").replace("_c-1", "")
-    np.savetxt("biomass.csv", bm.T, delimiter=",", header=names, comments="")
-    np.savetxt("events.csv", ev.T, delimiter=",", header=names, comments="", fmt="%s")
-    np.savetxt("vendible.csv", vd.T, delimiter=",", header=names, comments="")
-    np.savetxt("codigo_kitral.csv", kt.T, delimiter=",", header=names, comments="", fmt="%s")
+def read_toml(config_toml="config.toml"):
+    if sys.version_info >= (3, 11):
+        import tomllib
 
-    bos_names = ["rid", "mid", "edad_inicial", "ha"]  # aprender hacer formato decente
-    bos = np.array([tuple(r[k] for k in bos_names) for r in rodales])
-    np.savetxt("bosque.csv", bos, delimiter=",", header=",".join(bos_names), comments="", fmt="%d")
+        with open(config_toml, "rb") as f:
+            config = tomllib.load(f)
+    else:
+        import toml
+
+        config = toml.load(config_toml)
+    return config
 
 
-def generate():
+def generate(config=read_toml(), models=get_models()):
     """Genera los rodales con las biomasas generadas por cada año, dependiendo de su manejo y edad de crecimiento, junto con la biomasa para vender y el codigo kitral"""
+
+    # 0 setup random number generator
+    if seed := config["random"].get("seed"):
+        rng = np.random.default_rng(seed)
+    else:
+        rng = np.random.default_rng()
+
+    # 1 generate rodales
     rodales = []
     exclude_ids = [22, 23, 26, 27, 30, 31]
-    # Filtrar para excluir los modelos con ids en exclude_ids
+    # excluir los modelos ya raleados (no implementado que despues de la cosecha vuelvan a modelo sin raleo)
     filtered_models = [m for m in models if m["id"] not in exclude_ids]
     # itera = iter(range(config["rodales"]))
     # r = next(itera)
@@ -227,14 +242,14 @@ def generate():
         # 4 cases combinations of "has_cosecha" and "has_raleo"
         # 1 no hacer nada
         if not has_cosecha and not has_raleo:
-            # ver definicion de manejos
+            # done in manejos definition
             display(manejos)
         # 2
         elif has_cosecha and not has_raleo:
             # iterb = iter(np.arange(*config[model["Especie"]]["cosechas"]))
             # cosecha = next(iterb)
             for cosecha in np.arange(*config[model["Especie"]]["cosechas"]):
-                if cosecha not in edades:  # edades_manejo mejor que edades ?
+                if cosecha not in edades:
                     display(f"skipping: {e0=} !< {cosecha=} !< {e1=}")
                     continue
                 edades_manejo = edades % cosecha
@@ -362,11 +377,102 @@ def generate():
     return rodales
 
 
-def main():
-    print(__doc__)
-    rodales = simulator.generate()
-    simulator.write(rodales)
+def write(rodales):
+    """Crea los csv de salida, con la biomasa, eventos, biomasa vendible y codigos de kitral"""
+    bm = np.array([manejo["biomass"] for rodal in rodales for manejo in rodal["manejos"]])
+    ev = np.array([manejo["eventos"] for rodal in rodales for manejo in rodal["manejos"]])
+    vd = np.array([manejo["vendible"] for rodal in rodales for manejo in rodal["manejos"]])
+    kt = np.array([manejo["codigo_kitral"] for rodal in rodales for manejo in rodal["manejos"]])
+    names = ",".join(
+        [f"R{rodal['rid']}_c{manejo['cosecha']}_r{manejo['raleo']}" for rodal in rodales for manejo in rodal["manejos"]]
+    )
+    names = names.replace("_r-1", "").replace("_c-1", "")
+    np.savetxt("biomass.csv", bm.T, delimiter=",", header=names, comments="")
+    np.savetxt("events.csv", ev.T, delimiter=",", header=names, comments="", fmt="%s")
+    np.savetxt("vendible.csv", vd.T, delimiter=",", header=names, comments="")
+    np.savetxt("codigo_kitral.csv", kt.T, delimiter=",", header=names, comments="", fmt="%s")
+
+    bos_names = ["rid", "mid", "edad_inicial", "ha"]  # aprender hacer formato decente
+    bos = np.array([tuple(r[k] for k in bos_names) for r in rodales])
+    np.savetxt("bosque.csv", bos, delimiter=",", header=",".join(bos_names), comments="", fmt="%d")
+
+
+def arg_parser(argv=None):
+    """Parse command line arguments."""
+    from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
+
+    parser = ArgumentParser(
+        description=__doc__,
+        formatter_class=ArgumentDefaultsHelpFormatter,
+        epilog="More at https://fire2a.github.io/fire2a-lib",
+    )
+    parser.add_argument(
+        "config_file",
+        nargs="?",
+        type=Path,
+        help="Configuration of simulation parameters file",
+        default="config.toml",
+    )
+    parser.add_argument(
+        "-m",
+        "--models_table",
+        type=Path,
+        help="Table of growth models.csv",
+        default="tabla.csv",
+    )
+    parser.add_argument(
+        "-nw",
+        "--no_write",
+        action="store_true",
+        help="Do not write output files (see write method)",
+        default=False,
+    )
+    parser.add_argument(
+        "-s",
+        "--script",
+        action="store_true",
+        help="Run in script mode, returning the rodales object. Example: import simulator; rodales = simulator.main(['-s','-nw'])",
+        default=False,
+    )
+
+    args = parser.parse_args(argv)
+    if Path(args.config_file).is_file() is False:
+        parser.error(f"File {args.config_file} not found")
+    if Path(args.models_table).is_file() is False:
+        parser.error(f"File {args.models_table} not found")
+    return args
+
+
+def main(argv=None):
+    """Main entry point for command line usage.
+
+    args = arg_parser(["config.toml", "-m", "tabla.csv"])
+    args = arg_parser(None)
+    """
+    if argv is sys.argv:
+        argv = sys.argv[1:]
+    args = arg_parser(argv)
+    print("Parsed arguments", args)
+
+    # 1 read config.toml
+    config = read_toml(args.config_file)
+
+    # 2 read models
+    models = get_models(args.models_table)
+
+    # 3 generate rodales
+    rodales = generate(config, models)
+
+    # 4 write output files
+    if not args.no_write:
+        write(rodales)
+
+    # 5 return rodales if scripting
+    if args.script:
+        return rodales
+
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main(sys.argv))
