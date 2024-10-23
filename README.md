@@ -11,43 +11,47 @@ biomass(t) = \alpha \cdot t^\beta + \gamma
 $$
 
 2. A template for generating a timber plantation and different management policies was made (config.toml)
-   ```toml
-   horizonte = 10 # number of years to generate
-   rodales = 36 # number of stands, choosing one model at random
+    ```toml
+    horizonte = 10 # number of years to generate
+    rodales = 36 # number of stands, choosing one model at random
 
-   [random]
-   seed = 4 # random number generator seed
-   edades = [1, 18] # min, max age of generated stands
-   has = [5, 15] #  min, max hectares of generated stands
+    [random]
+    # random number generator seed: omit or comment for different results each run
+    seed = 5
+    # `low` (inclusive) to `high` (exclusive)
+    # n, n+1 for getting a single value: n
+    # see np.random.randint
+    edades = [1, 18] # min, max age of generated stands
+    has = [5, 15] #  min, max hectares of generated stands
 
-   [pino]
-   raleos = [6, 11, 1] # for each Pinus stand, generate different biomass history considering thinnig in the year 6, 7, ... 11.
-   cosechas = [18, 29, 4] # for each stand, generate different biomass history considering harvesting in the year 18, 22, 16 (every 4 years) 
+    # ranges: start, stop, step
+    # n, n+1 for getting a single value range: [n]
+    # see np.arange
+    [pino]
+    raleos = [6, 11, 1] # for each Pinus stand, generate different biomass history considering thinnig in the year 6, 7, ... 11.
+    cosechas = [18, 29, 4] # for each stand, generate different biomass history considering harvesting in the year 18, 22, 16 (every 4 years) 
 
-   [eucalyptus]
-   cosechas = [10, 20, 2] # for each Eucalyptus stand, generate different biomass history considering harvesting in the year 10, 12, 14, ... 20 (every 2 years) 
-   ```
+    [eucalyptus]
+    cosechas = [10, 20, 2] # for each Eucalyptus stand, generate different biomass history considering harvesting in the year 10, 12, 14, ... 20 (every 2 years) 
+    ```
 
 
 
 ### quick start
 
-1. text edit `config.toml` for the desired parameters
-2. run: `python -c "import simulator; rodales = simulator.generate(); simulator.write(rodales)"`
+0. Get `simulator.py` and `config.toml`
+1. Have numpy installed (and toml if python version < 3.11)
+2. Run: `python simulator.py`
 
-### more options
+### more info
 
-see `simulator.py`
+1. `python simulator.py --help`
+2. See `example` folder
+3. Read `simulator.py` `__doc__` 
+4. Read `config.toml`
+5. Read Methodoly section of !["Modelos de predicción de biomasa a nivel de rodal en plantaciones de Eucalyptus globulus y Pinus radiata en Zona centro sur de en Chile"]('Modelos%20de%20predicción%20de%20biomasa%20a%20nivel%20de%20rodal%20en%20plantaciones%20de%20Eucalyptus%20globulus%20en%20Chile.pdf')
 
-### requirements
-
-numpy
-
-#### optionals
-
-matplotlib
-scipy
-sympy
+### models plots
 
 ![models](models.png)
 ![tabla](tabla.png)
