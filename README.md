@@ -39,7 +39,7 @@ $$
 
 ### quick start
 
-0. [clone] or just get `simulator.py`, `tabla.csv` and `config.toml`
+0. Clone, download or just get `simulator.py`, `tabla.csv` and `config.toml`
 1. Have numpy installed (and toml if python version < 3.11)
 2. Console run: `python simulator.py` to generate csv files
 3. Scripting/Interactive use:
