@@ -1,0 +1,17 @@
+horizonte = 10
+rodales = 34
+
+[random]
+seed = 17 # random number generator seed
+# min, max
+edades = [0, 30]
+has = [1, 1]
+# min, max, step
+[pino]
+podas = [3, 6, 2]
+raleos = [4, 8, 3]
+cosechas = [5, 10, 2]
+
+[eucalyptus]
+podas = [3, 6, 2]
+cosechas = [5, 10, 2]
