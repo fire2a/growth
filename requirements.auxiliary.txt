@@ -1,0 +1,7 @@
+black
+ipython
+matplotlib
+numpy
+scipy
+sympy
+toml; python_version < '3.11' 

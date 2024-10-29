@@ -1,7 +1,0 @@
-numpy
-sympy
-black
-ipython
-matplotlib
-scipy
-toml; python_version < '3.11' 
