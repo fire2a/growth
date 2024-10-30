@@ -22,10 +22,54 @@ def plot_models(horizon: int = 40, show=True, save=False):
         ax.plot(x, y, label=model["id"])
     ax.axhline(0, color="black", linestyle="--")
     ax.legend()
-    if show:
-        plt.show()
     if save:
         plt.savefig("models.png")
+
+    if show:
+        plt.show()
+
+
+def plot_1_id_model(horizon: int = 40, show=True, save=False, target_id: int = 30):
+    """Crea gráfico con los cálculos de biomasa por cada id del árbol eje x igual al año y eje y igual a la biomasa"""
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    fig, ax = plt.subplots()
+    ax.set_title("Modelos de crecimiento")
+
+    for model in models:
+        if target_id is not None and model["id"] != target_id:
+            continue
+
+        x = np.linspace(0, horizon, (horizon - 0) * 2)
+        y = model["α"] * x ** model["β"] + model["γ"]
+
+        if isinstance(x, np.ndarray):
+            y_zero_adjusted = np.where(
+                x < model["zero"],
+                (model["α"] * np.ceil(model["zero"]) ** model["β"] + model["γ"]) * x / np.ceil(model["zero"]),
+                model["α"] * x ** model["β"] + model["γ"],
+            )
+
+            ax.plot(x, y, label="Sin Arreglo")
+            ax.plot(x, y_zero_adjusted, label="Con Arreglo")
+            ax.legend()
+
+            # Añadir las rayas verticales y el texto abajo
+            zero = model["zero"]
+            zero_up = np.ceil(zero)
+            zero_down = np.floor(zero)
+
+            ax.axvline(x=zero, color="r", linestyle="--", label="Zero")
+            ax.axvline(x=zero_down, color="g", linestyle="--", label="Zero Aproximado Abajo")
+            ax.axvline(x=zero_up, color="b", linestyle="--", label="Zero Aproximado Arriba")
+
+    ax.axhline(0, color="black", linestyle="--")
+    ax.legend()
+    if save:
+        plt.savefig("model_1_id.png")
+    if show:
+        plt.show()
 
 
 def solve_numeric():
