@@ -41,33 +41,50 @@ def plot_1_id_model(horizon: int = 40, show=True, save=False, target_id: int = 3
         if target_id is not None and model["id"] != target_id:
             continue
 
+        # Valores continuos para la curva
         x = np.linspace(0, horizon, (horizon - 0) * 2)
         y = model["α"] * x ** model["β"] + model["γ"]
 
-        if isinstance(x, np.ndarray):
-            y_zero_adjusted = np.where(
-                x < model["zero"],
-                (model["α"] * np.ceil(model["zero"]) ** model["β"] + model["γ"]) * x / np.ceil(model["zero"]),
-                model["α"] * x ** model["β"] + model["γ"],
-            )
+        # Ajuste en el zero
+        y_zero_adjusted = np.where(
+            x < model["zero"],
+            (model["α"] * np.ceil(model["zero"]) ** model["β"] + model["γ"]) * x / np.ceil(model["zero"]),
+            model["α"] * x ** model["β"] + model["γ"],
+        )
 
-            ax.plot(x, y, label="Sin Arreglo")
-            ax.plot(x, y_zero_adjusted, label="Con Arreglo")
-            ax.legend()
+        # Graficar las líneas principales
+        ax.plot(x, y, label="Sin Arreglo", color="blue")
+        ax.plot(x, y_zero_adjusted, label="Con Arreglo", color="orange")
 
-            # Añadir las rayas verticales y el texto abajo
-            zero = model["zero"]
-            zero_up = np.ceil(zero)
-            zero_down = np.floor(zero)
+        # Añadir las líneas verticales de los valores zero
+        zero = model["zero"]
+        zero_up = np.ceil(zero)
+        zero_down = np.floor(zero)
 
-            ax.axvline(x=zero, color="r", linestyle="--", label="Zero")
-            ax.axvline(x=zero_down, color="g", linestyle="--", label="Zero Aproximado Abajo")
-            ax.axvline(x=zero_up, color="b", linestyle="--", label="Zero Aproximado Arriba")
+        ax.axvline(x=zero, color="r", linestyle="--", label="Zero")
+        ax.axvline(x=zero_down, color="g", linestyle="--", label="Zero Aproximado Abajo")
+        ax.axvline(x=zero_up, color="b", linestyle="--", label="Zero Aproximado Arriba")
 
+        # Añadir marcadores en los puntos enteros
+        x_integers = np.arange(0, horizon + 1, 1)
+        y_integers = model["α"] * x_integers ** model["β"] + model["γ"]
+        y_zero_adjusted_integers = np.where(
+            x_integers < model["zero"],
+            (model["α"] * np.ceil(model["zero"]) ** model["β"] + model["γ"]) * x_integers / np.ceil(model["zero"]),
+            model["α"] * x_integers ** model["β"] + model["γ"],
+        )
+
+        # Añadir marcadores de puntos enteros para ambas líneas
+        ax.plot(x_integers, y_integers, "o", color="blue", label="Puntos enteros Sin Arreglo")
+        ax.plot(x_integers, y_zero_adjusted_integers, "o", color="orange", label="Puntos enteros Con Arreglo")
+
+    # Agregar la línea horizontal en y=0 y mostrar la leyenda
     ax.axhline(0, color="black", linestyle="--")
     ax.legend()
+
+    # Guardar o mostrar la imagen según se requiera
     if save:
-        plt.savefig("model_1_id.png")
+        plt.savefig(f"model_{target_id}_id.png")
     if show:
         plt.show()
 
