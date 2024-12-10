@@ -490,9 +490,9 @@ def arg_parser(argv=None):
     from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
     parser = ArgumentParser(
-        description=__doc__,
+        description="Forest growth simulator at stand level with different management plans (thinning, harvest, replant). Growth model based on Chilean Pinus & Eucaliptus VII. Needs at least a config file and a growth models table",
         formatter_class=ArgumentDefaultsHelpFormatter,
-        epilog="More at https://fire2a.github.io/fire2a-lib",
+        epilog="Outputs several csv files: biomass.csv, events.csv, vendible.csv, codigo_kitral.csv & bosque.csv",
     )
     parser.add_argument(
         "config_file",
@@ -505,8 +505,22 @@ def arg_parser(argv=None):
         "-m",
         "--models_table",
         type=Path,
-        help="Table of growth models.csv",
+        help="Table of growth models",
         default="tabla.csv",
+    )
+    parser.add_argument(
+        "-f",
+        "--forest",
+        type=Path,
+        help="Forest attribute table to generate growth & management policies to (overrides --random)",
+        # default="bosque_data.csv",
+    )
+    parser.add_argument(
+        "-r",
+        "--random",
+        action="store_true",
+        help="Generate a random forest according to config_file parameters (gets overriden by --forest except when the file is not found)",
+        default=False,
     )
     parser.add_argument(
         "-nw",
@@ -516,34 +530,31 @@ def arg_parser(argv=None):
         default=False,
     )
     parser.add_argument(
-        "-d",
-        "--data_forest",
-        type=Path,
-        help="Data of the forest",
-        default="./bosque_data.csv",
-    )
-    parser.add_argument(
         "-s",
         "--script",
         action="store_true",
         help="Run in script mode, returning the rodales object. Example: import simulator; rodales = simulator.main(['-s','-nw'])",
         default=False,
     )
-    parser.add_argument("-r", "--random", action="store_true", help="Create the forest with random data", default=False)
 
     args = parser.parse_args(argv)
-    if Path(args.config_file).is_file() is False:
+    if not Path(args.config_file).is_file():
         parser.error(f"File {args.config_file} not found")
-    if Path(args.models_table).is_file() is False:
+    if not Path(args.models_table).is_file():
         parser.error(f"File {args.models_table} not found")
+    if args.forest and Path(args.forest).is_file():
+        args.random = False
+    else:
+        print(f"Forest attributes file {args.forest} not found, will generate random forest from config")
+        args.random = True
     return args
 
 
 def main(argv=None):
     """Main entry point for command line usage.
 
-    args = arg_parser(["config.toml", "-m", "tabla.csv"])
-    args = arg_parser(None)
+    args = arg_parser(["-m", "tabla.csv", "config.toml"])
+    args = arg_parser(["-r"])
     """
     if argv is sys.argv:
         argv = sys.argv[1:]
