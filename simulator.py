@@ -483,6 +483,7 @@ def write(rodales):
     bos_names = ["rid", "mid", "edad_inicial", "ha"]  # aprender hacer formato decente
     bos = np.array([tuple(r[k] for k in bos_names) for r in rodales])
     np.savetxt("bosque.csv", bos, delimiter=",", header=",".join(bos_names), comments="", fmt="%d")
+    print("Files written: biomass.csv, events.csv, vendible.csv, codigo_kitral.csv, bosque.csv")
 
 
 def arg_parser(argv=None):
@@ -563,20 +564,22 @@ def main(argv=None):
 
     # 1 read config.toml
     config = read_toml(args.config_file)
+    print("Parsed config", config)
 
     # 2 read models
     models = get_models(args.models_table)
+    print("Parsed models", models)
 
     # 3 generate rodales
     if args.random:
-        rodales_sin_manejo = generate_random_forest()
-
+        print("Generating random forest")
+        rodales_sin_manejo = generate_random_forest(config, models)
     else:
-        from auxiliary import get_data, create_bosque
-
         # usar bosque_data.csv, si no se tiene se puede crear con las funciones del auxiliary
-        rodales_sin_manejo = generate_forest(config, args.data_forest)
+        print("Generating forest from data")
+        rodales_sin_manejo = generate_forest(config, args.forest)
 
+    print("Generating rodales")
     rodales = generate(config, models, rodales_sin_manejo)
 
     # 4 write output files
@@ -585,6 +588,7 @@ def main(argv=None):
 
     # 5 return rodales if scripting
     if args.script:
+        print("Returning rodales")
         return rodales
 
     return 0
