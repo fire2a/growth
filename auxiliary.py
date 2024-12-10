@@ -4,7 +4,7 @@ import numpy as np
 models = np.genfromtxt(
     "tabla.csv",
     delimiter=",",
-    names=True,  # id,next,Especie,Zona,DensidadInicial,SiteIndex,Manejo,Condicion,α,β,γ
+    names=True,  # id,prev,next,Especie,Zona,DensidadInicial,SiteIndex,Manejo,Condicion,α,β,γ,stable_year
     dtype=None,
     encoding="utf-8",
 )
