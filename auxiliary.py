@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import numpy as np
+from pathlib import Path
 
 models = np.genfromtxt(
     "tabla.csv",
@@ -10,12 +11,13 @@ models = np.genfromtxt(
 )
 
 
-def get_data(filepath=".\\test\\proto.shp"):
+def get_data(filepath="test/proto.shp"):
+    """Gets a the attributes of a shapefile, to be used as the forest data"""
+    # AWFUL
     import geopandas as gpd
-
-    """Read data of forest from a shp"""
     gdf = gpd.read_file(filepath)
     return gdf
+    # GOOD
     """from osgeo import ogr
 
     # Ruta al archivo shapefile
@@ -49,6 +51,7 @@ def get_data(filepath=".\\test\\proto.shp"):
 
 
 def create_bosque(gdf=get_data()):
+    """Creates a csv file with the forest data"""
     data_rodales = gdf.dropna(subset=["edad"])
     data_rodales_2 = data_rodales.loc[data_rodales["area_ha"] > 0]
     bos_names = ["rid", "mid", "edad_inicial", "ha"]  # aprender hacer formato decente
@@ -198,7 +201,7 @@ def solve_symbolic():
 
 
 def append_zeros():
-    """agregar zeros a los modelos"""
+    """agregar zeros a la tabla de los modelos"""
     global models
     import numpy.lib.recfunctions as rfn
 
@@ -215,6 +218,7 @@ def append_zeros():
 
 
 def superpro():
+    """Hint: start and stop mid interactive session with these pickles"""
     import pickle
 
     # store
