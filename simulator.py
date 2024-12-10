@@ -83,6 +83,8 @@ def get_models(filepath="tabla.csv"):
     models[ models['next'] !=-1 ]['id']
     OJO -1 is assigned by default
     """
+    if not Path(filepath).is_file():
+        raise FileNotFoundError(f"File {filepath=} not found")
     models = np.genfromtxt(
         filepath,
         delimiter=",",
@@ -154,6 +156,9 @@ def print_manejos_possibles(config):
 
 
 def read_toml(config_toml="config.toml"):
+    """Read configuration from a toml file"""
+    if not Path(config_toml).is_file():
+        raise FileNotFoundError(f"File {config_toml=} not found")
     if sys.version_info >= (3, 11):
         import tomllib
 
@@ -166,7 +171,12 @@ def read_toml(config_toml="config.toml"):
     return config
 
 
-def generate_random_forest(config=read_toml(), models=get_models()):
+def generate_random_forest(config=None, models=None):
+    """Genera rodales aleatorios"""
+    if config is None:
+        config = read_toml()
+    if models is None:
+        models = get_models()
 
     # 0 setup random number generator
     if seed := config["random"].get("seed"):
@@ -194,11 +204,16 @@ def generate_random_forest(config=read_toml(), models=get_models()):
         }
         rodales += [rodal]
         display(rodal)
+    # display(rodales)
     return rodales
 
 
-def generate_forest(config=read_toml(), filepath="./bosque_data.csv"):
-    from auxiliary import get_data, create_bosque
+def generate_forest(config=None, filepath="bosque_data.csv"):
+    """Genera rodales a partir de una tabla de datos"""
+    if config is None:
+        config = read_toml()
+    if not Path(filepath).is_file():
+        raise FileNotFoundError(f"File {filepath=} not found")
 
     data = np.genfromtxt(filepath, delimiter=",", names=True)
     rodales = []
@@ -214,12 +229,20 @@ def generate_forest(config=read_toml(), filepath="./bosque_data.csv"):
             "ha": ha,
         }
         rodales.append(rodal)
-        print(rodal)  # Reemplaza display(rodal) por print(rodal)
+        display(rodal)  # Reemplaza display(rodal) por print(rodal)
+    # display(rodales)
     return rodales
 
 
-def generate(config=read_toml(), models=get_models(), rodales=generate_forest()):
+def generate(config=None, models=None, rodales=None):
     """Genera los rodales con las biomasas generadas por cada año, dependiendo de su manejo y edad de crecimiento, junto con la biomasa para vender y el codigo kitral"""
+    if config is None:
+        config = read_toml()
+    if models is None:
+        models = get_models()
+    if rodales is None:
+        rodales = generate_forest(config)
+
     for rodal in rodales:
         indices = np.where(models["id"] == rodal["mid"])[0]
         model = models[indices][0]
