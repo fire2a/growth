@@ -186,7 +186,7 @@ def generate_random_forest(config=read_toml(), models=get_models()):
         e1 = e0 + config["horizonte"]
         ha = rng.integers(*config["random"]["has"])
         rodal = {
-            "rid": rodal["rid"],
+            "rid": r,
             "mid": model["id"],
             "edad_inicial": e0,
             "edad_final": e1,
@@ -270,7 +270,7 @@ def generate(config=read_toml(), models=get_models(), rodales=generate_forest())
         else:
             has_raleo = False
 
-        print(f"{rodal["rid"]=}, {has_cosecha=}, {has_raleo=}")
+        print(f"{rodal['rid']=}, {has_cosecha=}, {has_raleo=}")
         # 4 cases combinations of "has_cosecha" and "has_raleo"
         # 1 no hacer nada
         if not has_cosecha and not has_raleo:
