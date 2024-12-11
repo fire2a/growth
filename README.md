@@ -10,7 +10,7 @@ $$
 biomass(t) = \alpha \cdot t^\beta + \gamma
 $$
 
-2. For some types of pinus, in the initial years of the simulation, the formula for biomass(t) was yielding negative values. Therefore, the formula used in the simulator is:
+1. To extrapolate to earlier years; due to the formula yielding negative values (for a few types of pinus). A linear adjustment was made:
 
 $$
 \text{biomass}(t) = 
@@ -19,12 +19,12 @@ $$
 \alpha \cdot t^\beta + \gamma & \text{if} t >= \text{stableyear}
 \end{cases}
 $$
-Stable year is the year when the formula begins to yield stable results (it depends on the type of pinus).
+_Stable year is the year when the formula begins to yield stable results (it depends on the type of pinus)._
 
-3. A template for generating a timber plantation and different management policies was made (config.toml)
+1. A template for generating a timber plantation and different management policies was made (config.toml)
     ```toml
     horizonte = 10 # number of years to generate
-    rodales = 36 # number of stands, choosing one model at random
+    rodales = 36 # number of stands to generate, choosing one model at random
 
     [random]
     # random number generator seed: omit or comment for different results each run
@@ -47,25 +47,27 @@ Stable year is the year when the formula begins to yield stable results (it depe
     # all feasible histories combining thinning and harvesting policies will be generated
     min_ral = 6 #minimun age where you can thinn a tree
     ```
-2.  If you have a real forest you want to simulate, you will need a `.csv` or `.shp` file containing the forest data. This data should include the following fields:
+
+1. For a real instance, the numbers of stands and its characteristics can be passed instead of generated at random. For this a `.csv` or `.shp` file is used, the data must include the following fields:
 
 - **id**: Unique identifier for each stand  
 - **age**: Age of the stand  
 - **hectare (ha)**: Area in hectares  
 - **fid**: File ID of the `.csv` or `.shp` file  
 
-You can then create a `bosque_data.csv` file using the auxiliary functions `get_data` and `create_bosque`.
+See `auxiliary.py` for GIS extraction or creation of this attributes table `bosque_data.csv` using the methods `get_data` and `create_bosque`.
 
 ### quick start
 
-0. Clone, download or just get `simulator.py`, `tabla.csv`, `bosque_data.csv` and `config.toml`
+0. Clone, download or just get `simulator.py`, `tabla.csv` and `config.toml`
 1. Have numpy installed (and toml if python version < 3.11)
-2. Console run: `python simulator.py` to generate csv files or `python simulator.py -r` if you don't have the csv data and you want to create a random forest (or you can create a bosque_data.csv with get_data() and create_bosque() from auxiliary)
+2. Console run: `python simulator.py` to generate at random or `python simulator.py -f bosque_data.csv` to use a real instance
 3. Scripting/Interactive use:
     ```python
     import simulator
-    rodales = simulator.main(['-s'])
+    rodales = simulator.main(['-s']) # rodales is a list of dictionaries each representing a stand with its biomass history, harvesting and thinning policies
     ```
+4. Done! The output is a list of several csv files: biomass.csv, events.csv, vendible.csv, codigo_kitral.csv & bosque.csv
 
 ### more info
 
