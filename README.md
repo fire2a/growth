@@ -16,7 +16,7 @@ $$
 \text{biomass}(t) = 
 \begin{cases} 
 \left(\alpha \cdot \text{stableyear}^\beta + \gamma \right) \cdot \frac{t}{\text{stableyear}} & \text{if } t < \text{stableyear} \\
-\alpha \cdot t^\beta + \gamma & \text{if} t >= \text{stableyear}
+\alpha \cdot t^\beta + \gamma & \text{if } t >= \text{stableyear}
 \end{cases}
 $$
 _Stable year is the year when the formula begins to yield stable results (it depends on the type of pinus)._
@@ -50,10 +50,12 @@ _Stable year is the year when the formula begins to yield stable results (it dep
 
 1. For a real instance, the numbers of stands and its characteristics can be passed instead of generated at random. For this a `.csv` or `.shp` file is used, the data must include the following fields:
 
-- **id**: Unique identifier for each stand  
+
+- **fid**: File ID of the `.csv` or `.shp` file  
+
+- **mid**: Unique identifier for the model to which the stand belongs, must match the `id` field in `tabla.csv`
 - **age**: Age of the stand  
 - **hectare (ha)**: Area in hectares  
-- **fid**: File ID of the `.csv` or `.shp` file  
 
 See `auxiliary.py` for GIS extraction or creation of this attributes table `bosque_data.csv` using the methods `get_data` and `create_bosque`.
 
