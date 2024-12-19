@@ -81,5 +81,5 @@ See `auxiliary.py` for GIS extraction or creation of this attributes table `bosq
 
 ![models](models.png)
 ![tabla](tabla.png)
-### example of new formula of biomass in model whit id 30
+### example of new formula of biomass in model whith id 30
 ![1_id](model_30_id.png)  
