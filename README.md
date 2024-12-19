@@ -50,9 +50,7 @@ _Stable year is the year when the formula begins to yield stable results (it dep
 
 1. For a real instance, the numbers of stands and its characteristics can be passed instead of generated at random. For this a `.csv` or `.shp` file is used, the data must include the following fields:
 
-
 - **fid**: File ID of the `.csv` or `.shp` file  
-
 - **mid**: Unique identifier for the model to which the stand belongs, must match the `id` field in `tabla.csv`
 - **age**: Age of the stand  
 - **hectare (ha)**: Area in hectares  
