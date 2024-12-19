@@ -45,7 +45,7 @@ _Stable year is the year when the formula begins to yield stable results (it dep
     raleos = [6, 11, 2] # thinning policies in the years 6, 8, 10.
     cosechas = [18, 29, 3] # harvesting policies in the years 18, 21, 24, ... (every 3 years)
     # all feasible histories combining thinning and harvesting policies will be generated
-    min_ral = 6 #minimun age where you can thinn a tree
+    min_ral = 6 #lower bound to tree thinning actions
     ```
 
 1. For a real instance, the numbers of stands and its characteristics can be passed instead of generated at random. For this a `.csv` or `.shp` file is used, the data must include the following fields:
