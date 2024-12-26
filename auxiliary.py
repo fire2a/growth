@@ -1,31 +1,178 @@
 #!/usr/bin/env python
 import numpy as np
+from pathlib import Path
 
 models = np.genfromtxt(
     "tabla.csv",
     delimiter=",",
-    names=True,  # id,next,Especie,Zona,DensidadInicial,SiteIndex,Manejo,Condicion,α,β,γ
+    names=True,  # id,prev,next,Especie,Zona,DensidadInicial,SiteIndex,Manejo,Condicion,α,β,γ,stable_year
     dtype=None,
     encoding="utf-8",
 )
 
 
-def plot_models(horizon: int = 40, show=True, save=False):
-    """Crea grafico con los calculos de biomasa por cada id del arbol eje x igual al año y eje y igual a la biomasa"""
+def get_data(filepath="test/proto.shp"):
+    """Gets a the attributes of a shapefile, to be used as the forest data"""
+    # AWFUL
+    import geopandas as gpd
+    gdf = gpd.read_file(filepath)
+    return gdf
+    # GOOD
+    """from osgeo import ogr
+
+    # Ruta al archivo shapefile
+    ruta_shapefile = 'ruta/al/archivo.shp'
+
+    # Abrir el shapefile
+    driver = ogr.GetDriverByName('ESRI Shapefile')
+    datasource = driver.Open(ruta_shapefile, 0)  # 0 significa modo de solo lectura
+    if not datasource:
+        print("No se pudo abrir el archivo shapefile.")
+        exit()
+
+    # Obtener la capa (layer)
+    layer = datasource.GetLayer()
+
+    # Iterar sobre los features en la capa
+    for feature in layer:
+        # Obtener la geometría del feature
+        geom = feature.GetGeometryRef()
+
+        # Listar los atributos del feature
+        for field in feature.keys():
+            print(f"{field}: {feature.GetField(field)}")
+
+        # Imprimir la geometría como WKT (Well-Known Text)
+        print(geom.ExportToWkt())
+        print('----------')
+
+    # Cerrar el shapefile
+    datasource = None"""
+
+
+def create_bosque(gdf=get_data()):
+    """Creates a csv file with the forest data"""
+    data_rodales = gdf.dropna(subset=["edad"])
+    data_rodales_2 = data_rodales.loc[data_rodales["area_ha"] > 0]
+    bos_names = ["rid", "mid", "edad_inicial", "ha"]  # aprender hacer formato decente
+    rodales = []
+
+    for idx, r in data_rodales_2.iterrows():
+        # model = rng.choice(models)
+        # print(model)
+        e0 = r["edad"]
+        ha = r["area_ha"]
+        rodal = {
+            "rid": r["fid"],  # r["fid"]
+            "mid": r["id"],
+            "edad_inicial": e0,
+            "ha": ha,
+        }
+        rodales += [rodal]
+
+    bos = np.array(
+        [tuple(r[k] for k in bos_names) for r in rodales],
+        dtype=[("rid", "i4"), ("mid", "i4"), ("edad_inicial", "i4"), ("ha", "f4")],
+    )
+    np.savetxt(
+        "bosque_data.csv", bos, delimiter=",", header=",".join(bos_names), comments="", fmt=["%d", "%d", "%d", "%.2f"]
+    )
+
+
+def plot_1_id_model(horizon: int = 40, show=True, save=False, target_id: int = 30):
+    """Crea gráfico con los cálculos de biomasa por cada id del árbol eje x igual al año y eje y igual a la biomasa"""
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots()
     ax.set_title("Modelos de crecimiento")
+
     for model in models:
-        x = np.linspace(0, horizon, (horizon - 0) * 2)
+        if target_id is not None and model["id"] != target_id:
+            continue
+
+        x = np.linspace(0, horizon, 1000)  # Ajuste de resolución
         y = model["α"] * x ** model["β"] + model["γ"]
-        ax.plot(x, y, label=model["id"])
+
+        y_zero_adjusted = np.where(
+            x < np.ceil(model["stable_year"]),
+            (model["α"] * np.ceil(model["stable_year"]) ** model["β"] + model["γ"]) * x / np.ceil(model["stable_year"]),
+            model["α"] * x ** model["β"] + model["γ"],
+        )
+
+        ax.plot(x, y, label="Sin Arreglo", color="blue")
+        ax.plot(x, y_zero_adjusted, label="Con Arreglo", color="orange")
+
+        zero = model["stable_year"]
+
+        # Mostrar la línea vertical para 'el año estable'
+        ax.axvline(
+            x=zero,
+            color="r",
+            linestyle="--",
+            label="Año Estable" if "Año Estable" not in [l.get_label() for l in ax.get_lines()] else "",
+        )
+
+        # Añadir un texto en la línea vertical indicando "Año Estable"
+        ax.text(
+            zero,
+            0,  # Coordenada y (línea del eje X)
+            f"Año Estable\n{zero}",
+            color="black",
+            fontsize=10,
+            horizontalalignment="center",
+            verticalalignment="bottom",
+        )
+
+        x_integers = np.arange(0, horizon + 1, 1)
+        y_integers = model["α"] * x_integers ** model["β"] + model["γ"]
+        y_zero_adjusted_integers = np.where(
+            x_integers < np.ceil(model["stable_year"]),
+            (model["α"] * np.ceil(model["stable_year"]) ** model["β"] + model["γ"])
+            * x_integers
+            / np.ceil(model["stable_year"]),
+            model["α"] * x_integers ** model["β"] + model["γ"],
+        )
+
+        ax.plot(
+            x_integers,
+            y_integers,
+            "o",
+            color="blue",
+            label=(
+                "Puntos enteros Sin Arreglo"
+                if "Puntos enteros Sin Arreglo" not in [l.get_label() for l in ax.get_lines()]
+                else ""
+            ),
+        )
+        ax.plot(
+            x_integers,
+            y_zero_adjusted_integers,
+            "o",
+            color="orange",
+            label=(
+                "Puntos enteros Con Arreglo"
+                if "Puntos enteros Con Arreglo" not in [l.get_label() for l in ax.get_lines()]
+                else ""
+            ),
+        )
+
     ax.axhline(0, color="black", linestyle="--")
     ax.legend()
+
+    # Añadir la leyenda explicativa debajo del gráfico
+    plt.figtext(
+        0.5,
+        -0.15,
+        "La línea azul representa el modelo de crecimiento sin ajuste.\nLa línea naranja muestra el modelo ajustado para valores menores al 'zero'.\nLa línea roja punteada indica el valor 'zero'.",
+        wrap=True,
+        horizontalalignment="center",
+        fontsize=12,
+    )
+
+    if save:
+        plt.savefig(f"model_{target_id}_id.png")
     if show:
         plt.show()
-    if save:
-        plt.savefig("models.png")
 
 
 def solve_numeric():
@@ -54,7 +201,7 @@ def solve_symbolic():
 
 
 def append_zeros():
-    """agregar zeros a los modelos"""
+    """agregar zeros a la tabla de los modelos"""
     global models
     import numpy.lib.recfunctions as rfn
 
@@ -71,6 +218,7 @@ def append_zeros():
 
 
 def superpro():
+    """Hint: start and stop mid interactive session with these pickles"""
     import pickle
 
     # store

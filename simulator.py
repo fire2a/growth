@@ -83,6 +83,8 @@ def get_models(filepath="tabla.csv"):
     models[ models['next'] !=-1 ]['id']
     OJO -1 is assigned by default
     """
+    if not Path(filepath).is_file():
+        raise FileNotFoundError(f"File {filepath=} not found")
     models = np.genfromtxt(
         filepath,
         delimiter=",",
@@ -98,14 +100,11 @@ def calc_biomass(model: np.void, e: int) -> float:
     Si la edad es menor que el zero del model, se redondea hacia arriba la edad donde es cero y
     Se pondera linealmente
     """
-    if e < model["zero"]:
-        e_up = np.ceil(model["zero"])
-        return max(
-            e / e_up * (model["α"] * e_up ** model["β"] + model["γ"]),
-            0,  # demuestre que siempre es positivo
-        )
+    e_up = np.ceil(model["stable_year"])
+    if e < e_up:
+        return e / e_up * (model["α"] * e_up ** model["β"] + model["γ"])
     else:
-        return max(model["α"] * e ** model["β"] + model["γ"], 0)
+        return model["α"] * e ** model["β"] + model["γ"]
 
 
 def generar_codigo_kitral(especie: str, edad: int, condicion: str) -> int:
@@ -157,6 +156,9 @@ def print_manejos_possibles(config):
 
 
 def read_toml(config_toml="config.toml"):
+    """Read configuration from a toml file"""
+    if not Path(config_toml).is_file():
+        raise FileNotFoundError(f"File {config_toml=} not found")
     if sys.version_info >= (3, 11):
         import tomllib
 
@@ -169,8 +171,12 @@ def read_toml(config_toml="config.toml"):
     return config
 
 
-def generate(config=read_toml(), models=get_models()):
-    """Genera los rodales con las biomasas generadas por cada año, dependiendo de su manejo y edad de crecimiento, junto con la biomasa para vender y el codigo kitral"""
+def generate_random_forest(config=None, models=None):
+    """Genera rodales aleatorios"""
+    if config is None:
+        config = read_toml()
+    if models is None:
+        models = get_models()
 
     # 0 setup random number generator
     if seed := config["random"].get("seed"):
@@ -180,18 +186,14 @@ def generate(config=read_toml(), models=get_models()):
 
     # 1 generate rodales
     rodales = []
-    exclude_ids = [22, 23, 26, 27, 30, 31]
-    # excluir los modelos ya raleados (no implementado que despues de la cosecha vuelvan a modelo sin raleo)
-    filtered_models = [m for m in models if m["id"] not in exclude_ids]
     # itera = iter(range(config["rodales"]))
     # r = next(itera)
     for r in range(config["rodales"]):
-        model = rng.choice(filtered_models)
+        model = rng.choice(models)
         # model = rng.choice(models)
         # print(model)
         e0 = rng.integers(*config["random"]["edades"])
         e1 = e0 + config["horizonte"]
-        edades = np.arange(e0, e1)
         ha = rng.integers(*config["random"]["has"])
         rodal = {
             "rid": r,
@@ -202,9 +204,57 @@ def generate(config=read_toml(), models=get_models()):
         }
         rodales += [rodal]
         display(rodal)
+    # display(rodales)
+    return rodales
+
+
+def generate_forest(config=None, filepath="bosque_data.csv"):
+    """Genera rodales a partir de una tabla de datos"""
+    if config is None:
+        config = read_toml()
+    if not Path(filepath).is_file():
+        raise FileNotFoundError(f"File {filepath=} not found")
+
+    data = np.genfromtxt(filepath, delimiter=",", names=True)
+    rodales = []
+    for r in data:
+        e0 = r["edad_inicial"]
+        e1 = e0 + config["horizonte"]
+        ha = r["ha"]
+        rodal = {
+            "rid": r["rid"],  # Identificador único para cada rodal
+            "mid": r["mid"],
+            "edad_inicial": e0,
+            "edad_final": e1,
+            "ha": ha,
+        }
+        rodales.append(rodal)
+        display(rodal)  # Reemplaza display(rodal) por print(rodal)
+    # display(rodales)
+    return rodales
+
+
+def generate(config=None, models=None, rodales=None):
+    """Genera los rodales con las biomasas generadas por cada año, dependiendo de su manejo y edad de crecimiento, junto con la biomasa para vender y el codigo kitral"""
+    if config is None:
+        config = read_toml()
+    if models is None:
+        models = get_models()
+    if rodales is None:
+        rodales = generate_forest(config)
+
+    for rodal in rodales:
+        indices = np.where(models["id"] == rodal["mid"])[0]
+        model = models[indices][0]
+        # model = rng.choice(models)
+        # print(model)
+        e0 = rodal["edad_inicial"]
+        e1 = rodal["edad_final"]
+        edades = np.arange(e0, e1)
+        ha = rodal["ha"]
         manejos = [
             {
-                "rid": r,
+                "rid": rodal["rid"],
                 "cosecha": -1,
                 "raleo": -1,
                 "biomass": ha * np.array([calc_biomass(model, e) for e in edades]),
@@ -229,16 +279,21 @@ def generate(config=read_toml(), models=get_models()):
                 has_raleo = False
                 for cosecha in np.arange(*config["pino"]["cosechas"]):
                     edades_manejo = edades % cosecha
-                    has_raleo = (model["next"] != -1) and any(
-                        np.isin(np.arange(*config["pino"]["raleos"]), edades_manejo)
-                    )
+                    if model["prev"] == -1:  # no raleado desde un inicio
+                        has_raleo = (model["next"] != -1) and any(
+                            np.isin(np.arange(*config["pino"]["raleos"]), edades_manejo)
+                        )
+                    else:  # raleado desde un inicio
+                        raleos = np.arange(*config["pino"]["raleos"])
+                        has_raleo = any((raleo + cosecha) in edades for raleo in raleos)
+
                     print(cosecha, np.arange(*config["pino"]["raleos"]), edades_manejo, has_raleo)
                     if has_raleo:
                         break
         else:
             has_raleo = False
 
-        print(f"{r=}, {has_cosecha=}, {has_raleo=}")
+        print(f"{rodal['rid']=}, {has_cosecha=}, {has_raleo=}")
         # 4 cases combinations of "has_cosecha" and "has_raleo"
         # 1 no hacer nada
         if not has_cosecha and not has_raleo:
@@ -253,11 +308,15 @@ def generate(config=read_toml(), models=get_models()):
                     display(f"skipping: {e0=} !< {cosecha=} !< {e1=}")
                     continue
                 edades_manejo = edades % cosecha
+                if model["prev"] == -1:
+                    mods = [model["id"]] * len(edades_manejo)
+                else:
+                    mods = [model["id"] if e > 6 else model["prev"] for e in edades_manejo]
                 manejo = {
-                    "rid": r,
+                    "rid": rodal["rid"],
                     "cosecha": cosecha,
                     "raleo": -1,
-                    "biomass": ha * np.array([calc_biomass(model, e) for e in edades_manejo]),
+                    "biomass": ha * np.array([calc_biomass(models[m], e) for m, e in zip(mods, edades_manejo)]),
                     "edades": edades_manejo,
                     "eventos": ["c" if e == 0 else "" for e in edades_manejo],
                     "vendible": ha * np.array([calc_biomass(model, cosecha) if e == 0 else 0 for e in edades_manejo]),
@@ -281,7 +340,7 @@ def generate(config=read_toml(), models=get_models()):
                     display(f"skipping: {e0=} !< {raleo=} !< {e1=}")
                     continue
                 manejo = {
-                    "rid": r,
+                    "rid": rodal["rid"],
                     "cosecha": -1,
                     "raleo": raleo,
                     "biomass": ha
@@ -327,28 +386,57 @@ def generate(config=read_toml(), models=get_models()):
                 np.arange(*config[model["Especie"]]["cosechas"]), np.arange(*config[model["Especie"]]["raleos"])
             ):
                 edades_manejo = edades % cosecha
-                if (raleo >= cosecha) or (cosecha not in edades) or (raleo not in edades_manejo):
-                    # display(f"skipping: {min(edades_manejo)=} {max(edades_manejo)=} !< {raleo=} !< {cosecha=} !< {e1=}")
-                    continue
-                else:
-                    # display(f"NO skipping: {min(edades_manejo)=} {max(edades_manejo)=} !< {raleo=} !< {cosecha=} !< {e1=}")
-                    pass
-                mods = [model["id"] if e < raleo else model["next"] for e in edades_manejo]
-                display(f"{mods=}")
-                eventos = []
-                vendible = []
-                for e in edades_manejo:
-                    if e == raleo:
-                        eventos += ["r"]
-                        vendible += [(calc_biomass(model, raleo) - calc_biomass(models[model["next"]], raleo))]
-                    elif e == 0:
-                        eventos += ["c"]
-                        vendible += [calc_biomass(models[model["next"]], cosecha)]
+                if model["prev"] == -1:
+
+                    if (raleo >= cosecha) or (cosecha not in edades) or (raleo not in edades_manejo):
+                        # display(f"skipping: {min(edades_manejo)=} {max(edades_manejo)=} !< {raleo=} !< {cosecha=} !< {e1=}")
+                        continue
                     else:
-                        eventos += [""]
-                        vendible += [0]
+                        # display(f"NO skipping: {min(edades_manejo)=} {max(edades_manejo)=} !< {raleo=} !< {cosecha=} !< {e1=}")
+                        pass
+
+                    mods = [model["id"] if e < raleo else model["next"] for e in edades_manejo]
+                    display(f"{mods=}")
+                    eventos = []
+                    vendible = []
+                    for e in edades_manejo:
+                        if e == raleo:
+                            eventos += ["r"]
+                            vendible += [(calc_biomass(model, raleo) - calc_biomass(models[model["next"]], raleo))]
+                        elif e == 0:
+                            eventos += ["c"]
+                            vendible += [calc_biomass(models[model["next"]], cosecha)]
+                        else:
+                            eventos += [""]
+                            vendible += [0]
+                else:  # si tiene prev
+                    if (
+                        (raleo >= cosecha)
+                        or (cosecha not in edades)
+                        or (raleo not in edades_manejo)
+                        or (cosecha + raleo not in edades)
+                    ):
+                        # display(f"skipping: {min(edades_manejo)=} {max(edades_manejo)=} !< {raleo=} !< {cosecha=} !< {e1=}")
+                        continue
+                    else:
+                        # display(f"NO skipping: {min(edades_manejo)=} {max(edades_manejo)=} !< {raleo=} !< {cosecha=} !< {e1=}")
+                        pass
+                    mods = [model["id"] if e >= raleo else model["prev"] for e in edades_manejo]
+                    display(f"{mods=}")
+                    eventos = []
+                    vendible = []
+                    for e in edades_manejo:
+                        if e == raleo and "c" in eventos:
+                            eventos += ["r"]
+                            vendible += [(calc_biomass(models[model["prev"]], raleo) - calc_biomass(model, raleo))]
+                        elif e == 0:
+                            eventos += ["c"]
+                            vendible += [calc_biomass(model, cosecha)]
+                        else:
+                            eventos += [""]
+                            vendible += [0]
                 manejo = {
-                    "rid": r,
+                    "rid": rodal["rid"],
                     "cosecha": cosecha,
                     "raleo": raleo,
                     "biomass": ha
@@ -395,6 +483,7 @@ def write(rodales):
     bos_names = ["rid", "mid", "edad_inicial", "ha"]  # aprender hacer formato decente
     bos = np.array([tuple(r[k] for k in bos_names) for r in rodales])
     np.savetxt("bosque.csv", bos, delimiter=",", header=",".join(bos_names), comments="", fmt="%d")
+    print("Files written: biomass.csv, events.csv, vendible.csv, codigo_kitral.csv, bosque.csv")
 
 
 def arg_parser(argv=None):
@@ -402,9 +491,9 @@ def arg_parser(argv=None):
     from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
     parser = ArgumentParser(
-        description=__doc__,
+        description="Forest growth simulator at stand level with different management plans (thinning, harvest, replant). Growth model based on Chilean Pinus & Eucaliptus VII. Needs at least a config file and a growth models table",
         formatter_class=ArgumentDefaultsHelpFormatter,
-        epilog="More at https://fire2a.github.io/fire2a-lib",
+        epilog="Outputs several csv files: biomass.csv, events.csv, vendible.csv, codigo_kitral.csv & bosque.csv",
     )
     parser.add_argument(
         "config_file",
@@ -417,8 +506,22 @@ def arg_parser(argv=None):
         "-m",
         "--models_table",
         type=Path,
-        help="Table of growth models.csv",
+        help="Table of growth models",
         default="tabla.csv",
+    )
+    parser.add_argument(
+        "-f",
+        "--forest",
+        type=Path,
+        help="Forest attribute table to generate growth & management policies to (overrides --random)",
+        # default="bosque_data.csv",
+    )
+    parser.add_argument(
+        "-r",
+        "--random",
+        action="store_true",
+        help="Generate a random forest according to config_file parameters (gets overriden by --forest except when the file is not found)",
+        default=False,
     )
     parser.add_argument(
         "-nw",
@@ -436,18 +539,23 @@ def arg_parser(argv=None):
     )
 
     args = parser.parse_args(argv)
-    if Path(args.config_file).is_file() is False:
+    if not Path(args.config_file).is_file():
         parser.error(f"File {args.config_file} not found")
-    if Path(args.models_table).is_file() is False:
+    if not Path(args.models_table).is_file():
         parser.error(f"File {args.models_table} not found")
+    if args.forest and Path(args.forest).is_file():
+        args.random = False
+    else:
+        print(f"Forest attributes file {args.forest} not found, will generate random forest from config")
+        args.random = True
     return args
 
 
 def main(argv=None):
     """Main entry point for command line usage.
 
-    args = arg_parser(["config.toml", "-m", "tabla.csv"])
-    args = arg_parser(None)
+    args = arg_parser(["-m", "tabla.csv", "config.toml"])
+    args = arg_parser(["-r"])
     """
     if argv is sys.argv:
         argv = sys.argv[1:]
@@ -456,12 +564,23 @@ def main(argv=None):
 
     # 1 read config.toml
     config = read_toml(args.config_file)
+    print("Parsed config", config)
 
     # 2 read models
     models = get_models(args.models_table)
+    print("Parsed models", models)
 
     # 3 generate rodales
-    rodales = generate(config, models)
+    if args.random:
+        print("Generating random forest")
+        rodales_sin_manejo = generate_random_forest(config, models)
+    else:
+        # usar bosque_data.csv, si no se tiene se puede crear con las funciones del auxiliary
+        print("Generating forest from data")
+        rodales_sin_manejo = generate_forest(config, args.forest)
+
+    print("Generating rodales")
+    rodales = generate(config, models, rodales_sin_manejo)
 
     # 4 write output files
     if not args.no_write:
@@ -469,6 +588,7 @@ def main(argv=None):
 
     # 5 return rodales if scripting
     if args.script:
+        print("Returning rodales")
         return rodales
 
     return 0

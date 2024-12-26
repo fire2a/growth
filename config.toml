@@ -17,6 +17,7 @@ has = [5, 15]
 podas = [5, 15, 5] # not implemented
 raleos = [6, 11, 1]
 cosechas = [18, 29, 1]
+min_ral = 6
 
 [eucalyptus]
 podas = [4, 6, 2] # not implemented
