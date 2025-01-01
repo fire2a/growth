@@ -19,6 +19,7 @@ $$
 \alpha \cdot t^\beta + \gamma & \text{if } t >= \text{stableyear}
 \end{cases}
 $$
+
 _Stable year is the year when the formula begins to yield stable results (it depends on the type of pinus)._
 
 1. A template for generating a timber plantation and different management policies was made (config.toml)
