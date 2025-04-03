@@ -1,23 +1,21 @@
 #!/usr/bin/env python
 import numpy as np
-from pathlib import Path
 
 models = np.genfromtxt(
     "tabla.csv",
     delimiter=",",
-    names=True,  # id,prev,next,Especie,Zona,DensidadInicial,SiteIndex,Manejo,Condicion,α,β,γ,stable_year
+    names=True,  # id,next,Especie,Zona,DensidadInicial,SiteIndex,Manejo,Condicion,α,β,γ
     dtype=None,
     encoding="utf-8",
 )
 
 
-def get_data(filepath="test/proto.shp"):
-    """Gets a the attributes of a shapefile, to be used as the forest data"""
-    # AWFUL
+def get_data(filepath=".\\test\\data_base\\proto.shp"):
     import geopandas as gpd
+
+    """Read data of forest from a shp"""
     gdf = gpd.read_file(filepath)
     return gdf
-    # GOOD
     """from osgeo import ogr
 
     # Ruta al archivo shapefile
@@ -50,8 +48,8 @@ def get_data(filepath="test/proto.shp"):
     datasource = None"""
 
 
-def create_bosque(gdf=get_data()):
-    """Creates a csv file with the forest data"""
+def create_forest(gdf, id="fid"):
+    """Crea un bosque a partir de un geopandas dataframe"""
     data_rodales = gdf.dropna(subset=["edad"])
     data_rodales_2 = data_rodales.loc[data_rodales["area_ha"] > 0]
     bos_names = ["rid", "mid", "edad_inicial", "ha"]  # aprender hacer formato decente
@@ -63,7 +61,7 @@ def create_bosque(gdf=get_data()):
         e0 = r["edad"]
         ha = r["area_ha"]
         rodal = {
-            "rid": r["fid"],  # r["fid"]
+            "rid": r[id],  # r["fid"] en caso habitual
             "mid": r["id"],
             "edad_inicial": e0,
             "ha": ha,
@@ -85,6 +83,8 @@ def plot_1_id_model(horizon: int = 40, show=True, save=False, target_id: int = 3
 
     fig, ax = plt.subplots()
     ax.set_title("Modelos de crecimiento")
+    ax.set_xlabel("Edad")
+    ax.set_ylabel("Biomasa Total")
 
     for model in models:
         if target_id is not None and model["id"] != target_id:
@@ -110,17 +110,6 @@ def plot_1_id_model(horizon: int = 40, show=True, save=False, target_id: int = 3
             color="r",
             linestyle="--",
             label="Año Estable" if "Año Estable" not in [l.get_label() for l in ax.get_lines()] else "",
-        )
-
-        # Añadir un texto en la línea vertical indicando "Año Estable"
-        ax.text(
-            zero,
-            0,  # Coordenada y (línea del eje X)
-            f"Año Estable\n{zero}",
-            color="black",
-            fontsize=10,
-            horizontalalignment="center",
-            verticalalignment="bottom",
         )
 
         x_integers = np.arange(0, horizon + 1, 1)
@@ -201,7 +190,7 @@ def solve_symbolic():
 
 
 def append_zeros():
-    """agregar zeros a la tabla de los modelos"""
+    """agregar zeros a los modelos"""
     global models
     import numpy.lib.recfunctions as rfn
 
@@ -218,7 +207,6 @@ def append_zeros():
 
 
 def superpro():
-    """Hint: start and stop mid interactive session with these pickles"""
     import pickle
 
     # store
