@@ -83,8 +83,6 @@ def get_models(filepath="tabla.csv"):
     models[ models['next'] !=-1 ]['id']
     OJO -1 is assigned by default
     """
-    if not Path(filepath).is_file():
-        raise FileNotFoundError(f"File {filepath=} not found")
     models = np.genfromtxt(
         filepath,
         delimiter=",",
@@ -156,9 +154,6 @@ def print_manejos_possibles(config):
 
 
 def read_toml(config_toml="config.toml"):
-    """Read configuration from a toml file"""
-    if not Path(config_toml).is_file():
-        raise FileNotFoundError(f"File {config_toml=} not found")
     if sys.version_info >= (3, 11):
         import tomllib
 
@@ -171,12 +166,7 @@ def read_toml(config_toml="config.toml"):
     return config
 
 
-def generate_random_forest(config=None, models=None):
-    """Genera rodales aleatorios"""
-    if config is None:
-        config = read_toml()
-    if models is None:
-        models = get_models()
+def generate_random_forest(config=read_toml(), models=get_models()):
 
     # 0 setup random number generator
     if seed := config["random"].get("seed"):
@@ -196,7 +186,7 @@ def generate_random_forest(config=None, models=None):
         e1 = e0 + config["horizonte"]
         ha = rng.integers(*config["random"]["has"])
         rodal = {
-            "rid": r,
+            "rid": rodal["rid"],
             "mid": model["id"],
             "edad_inicial": e0,
             "edad_final": e1,
@@ -204,16 +194,10 @@ def generate_random_forest(config=None, models=None):
         }
         rodales += [rodal]
         display(rodal)
-    # display(rodales)
     return rodales
 
 
-def generate_forest(config=None, filepath="bosque_data.csv"):
-    """Genera rodales a partir de una tabla de datos"""
-    if config is None:
-        config = read_toml()
-    if not Path(filepath).is_file():
-        raise FileNotFoundError(f"File {filepath=} not found")
+def generate_forest(config=read_toml(), filepath="./bosque_data.csv"):
 
     data = np.genfromtxt(filepath, delimiter=",", names=True)
     rodales = []
@@ -229,20 +213,12 @@ def generate_forest(config=None, filepath="bosque_data.csv"):
             "ha": ha,
         }
         rodales.append(rodal)
-        display(rodal)  # Reemplaza display(rodal) por print(rodal)
-    # display(rodales)
+        print(rodal)  # Reemplaza display(rodal) por print(rodal)
     return rodales
 
 
-def generate(config=None, models=None, rodales=None):
+def generate(config=read_toml(), models=get_models(), rodales=generate_forest()):
     """Genera los rodales con las biomasas generadas por cada año, dependiendo de su manejo y edad de crecimiento, junto con la biomasa para vender y el codigo kitral"""
-    if config is None:
-        config = read_toml()
-    if models is None:
-        models = get_models()
-    if rodales is None:
-        rodales = generate_forest(config)
-
     for rodal in rodales:
         indices = np.where(models["id"] == rodal["mid"])[0]
         model = models[indices][0]
@@ -281,7 +257,7 @@ def generate(config=None, models=None, rodales=None):
                     edades_manejo = edades % cosecha
                     if model["prev"] == -1:  # no raleado desde un inicio
                         has_raleo = (model["next"] != -1) and any(
-                            np.isin(np.arange(*config["pino"]["raleos"]), edades_manejo)
+                            np.isin(np.arange(*config["pino"]["raleos"]), edades_anejo)
                         )
                     else:  # raleado desde un inicio
                         raleos = np.arange(*config["pino"]["raleos"])
@@ -523,7 +499,6 @@ def write(rodales):
     bos_names = ["rid", "mid", "edad_inicial", "ha"]  # aprender hacer formato decente
     bos = np.array([tuple(r[k] for k in bos_names) for r in rodales])
     np.savetxt("bosque.csv", bos, delimiter=",", header=",".join(bos_names), comments="", fmt="%d")
-    print("Files written: biomass.csv, events.csv, vendible.csv, codigo_kitral.csv, bosque.csv")
 
 
 def arg_parser(argv=None):
@@ -531,9 +506,9 @@ def arg_parser(argv=None):
     from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
     parser = ArgumentParser(
-        description="Forest growth simulator at stand level with different management plans (thinning, harvest, replant). Growth model based on Chilean Pinus & Eucaliptus VII. Needs at least a config file and a growth models table",
+        description=__doc__,
         formatter_class=ArgumentDefaultsHelpFormatter,
-        epilog="Outputs several csv files: biomass.csv, events.csv, vendible.csv, codigo_kitral.csv & bosque.csv",
+        epilog="More at https://fire2a.github.io/fire2a-lib",
     )
     parser.add_argument(
         "config_file",
@@ -546,22 +521,8 @@ def arg_parser(argv=None):
         "-m",
         "--models_table",
         type=Path,
-        help="Table of growth models",
+        help="Table of growth models.csv",
         default="tabla.csv",
-    )
-    parser.add_argument(
-        "-f",
-        "--forest",
-        type=Path,
-        help="Forest attribute table to generate growth & management policies to (overrides --random)",
-        # default="bosque_data.csv",
-    )
-    parser.add_argument(
-        "-r",
-        "--random",
-        action="store_true",
-        help="Generate a random forest according to config_file parameters (gets overriden by --forest except when the file is not found)",
-        default=False,
     )
     parser.add_argument(
         "-nw",
@@ -571,31 +532,34 @@ def arg_parser(argv=None):
         default=False,
     )
     parser.add_argument(
+        "-d",
+        "--data_forest",
+        type=Path,
+        help="Data of the forest",
+        default="./bosque_data.csv",
+    )
+    parser.add_argument(
         "-s",
         "--script",
         action="store_true",
         help="Run in script mode, returning the rodales object. Example: import simulator; rodales = simulator.main(['-s','-nw'])",
         default=False,
     )
+    parser.add_argument("-r", "--random", action="store_true", help="Create the forest with random data", default=False)
 
     args = parser.parse_args(argv)
-    if not Path(args.config_file).is_file():
+    if Path(args.config_file).is_file() is False:
         parser.error(f"File {args.config_file} not found")
-    if not Path(args.models_table).is_file():
+    if Path(args.models_table).is_file() is False:
         parser.error(f"File {args.models_table} not found")
-    if args.forest and Path(args.forest).is_file():
-        args.random = False
-    else:
-        print(f"Forest attributes file {args.forest} not found, will generate random forest from config")
-        args.random = True
     return args
 
 
 def main(argv=None):
     """Main entry point for command line usage.
 
-    args = arg_parser(["-m", "tabla.csv", "config.toml"])
-    args = arg_parser(["-r"])
+    args = arg_parser(["config.toml", "-m", "tabla.csv"])
+    args = arg_parser(None)
     """
     if argv is sys.argv:
         argv = sys.argv[1:]
@@ -604,22 +568,19 @@ def main(argv=None):
 
     # 1 read config.toml
     config = read_toml(args.config_file)
-    print("Parsed config", config)
 
     # 2 read models
     models = get_models(args.models_table)
-    print("Parsed models", models)
 
     # 3 generate rodales
     if args.random:
-        print("Generating random forest")
-        rodales_sin_manejo = generate_random_forest(config, models)
-    else:
-        # usar bosque_data.csv, si no se tiene se puede crear con las funciones del auxiliary
-        print("Generating forest from data")
-        rodales_sin_manejo = generate_forest(config, args.forest)
+        rodales_sin_manejo = generate_random_forest()
 
-    print("Generating rodales")
+    else:
+
+        # usar bosque_data.csv, si no se tiene se puede crear con las funciones del auxiliary
+        rodales_sin_manejo = generate_forest(config, args.data_forest)
+
     rodales = generate(config, models, rodales_sin_manejo)
 
     # 4 write output files
@@ -628,7 +589,6 @@ def main(argv=None):
 
     # 5 return rodales if scripting
     if args.script:
-        print("Returning rodales")
         return rodales
 
     return 0
