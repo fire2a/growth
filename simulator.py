@@ -287,7 +287,9 @@ def generate(config=read_toml(), models=get_models(), rodales=generate_forest())
                 if model["prev"] == -1:
                     mods = [model["id"]] * len(edades_manejo)
                 else:
-                    mods = [model["id"] if e > 6 else model["prev"] for e in edades_manejo]
+                    mods = [
+                        model["id"] if e > config[model["Especie"]]["min_ral"] else model["prev"] for e in edades_manejo
+                    ]
                 manejo = {
                     "rid": rodal["rid"],
                     "cosecha": cosecha,
@@ -333,8 +335,22 @@ def generate(config=read_toml(), models=get_models(), rodales=generate_forest())
                         [
                             (
                                 (calc_biomass(model, raleo) - calc_biomass(models[model["next"]], raleo))
-                                if e == raleo
-                                else 0
+                                if e == raleo and models[model["next"]]["stable_year"] == 0
+                                else (
+                                    (
+                                        (
+                                            raleo
+                                            / np.ceil(models[model["next"]]["stable_year"])
+                                            * (
+                                                model["α"] * np.ceil(models[model["next"]]["stable_year"]) ** model["β"]
+                                                + model["γ"]
+                                            )
+                                        )
+                                        - calc_biomass(models[model["next"]], raleo)
+                                    )
+                                    if e == raleo and models[model["next"]]["stable_year"] != 0
+                                    else 0
+                                )
                             )
                             for e in edades
                         ]
@@ -378,7 +394,19 @@ def generate(config=read_toml(), models=get_models(), rodales=generate_forest())
                     for e in edades_manejo:
                         if e == raleo:
                             eventos += ["r"]
-                            vendible += [calc_biomass(model, raleo) - calc_biomass(models[model["next"]], raleo)]
+                            vendible += [
+                                (
+                                    calc_biomass(model, raleo) - calc_biomass(models[model["next"]], raleo)
+                                    if models[model["next"]]["stable_year"] == 0
+                                    else raleo
+                                    / np.ceil(models[model["next"]]["stable_year"])
+                                    * (
+                                        model["α"] * np.ceil(models[model["next"]]["stable_year"]) ** model["β"]
+                                        + model["γ"]
+                                    )
+                                    - calc_biomass(models[model["next"]], raleo)
+                                )
+                            ]
                         elif e == 0:
                             eventos += ["c"]
                             vendible += [calc_biomass(models[model["next"]], cosecha)]
@@ -404,7 +432,19 @@ def generate(config=read_toml(), models=get_models(), rodales=generate_forest())
                     for e in edades_manejo:
                         if e == raleo and "c" in eventos:
                             eventos += ["r"]
-                            vendible += [calc_biomass(models[model["prev"]], raleo) - calc_biomass(model, raleo)]
+                            vendible += [
+                                (
+                                    calc_biomass(models[model["prev"]], raleo) - calc_biomass(model, raleo)
+                                    if model["stable_year"] == 0
+                                    else raleo
+                                    / model["stable_year"]
+                                    * (
+                                        models[model["prev"]]["α"] * model["stable_year"] ** models[model["prev"]]["β"]
+                                        + models[model["prev"]]["γ"]
+                                    )
+                                    - calc_biomass(model, raleo)
+                                )
+                            ]
                         elif e == 0:
                             eventos += ["c"]
                             vendible += [calc_biomass(model, cosecha)]
