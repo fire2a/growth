@@ -234,7 +234,7 @@ def generate_forest(config=None, filepath="bosque_data.csv"):
     return rodales
 
 
-def generate(config=read_toml(), models=get_models(), rodales=generate_forest()):
+def generate(config=None, models=None, rodales=None):
     """Genera los rodales con las biomasas generadas por cada año, dependiendo de su manejo y edad de crecimiento, junto con la biomasa para vender y el codigo kitral"""
     if config is None:
         config = read_toml()
