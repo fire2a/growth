@@ -48,11 +48,12 @@ def get_data(filepath=".\\test\\data_base\\proto.shp"):
     datasource = None"""
 
 
-def create_forest(gdf, id="fid"):
-    """Crea un bosque a partir de un geopandas dataframe"""
+def create_forest(gdf, id="fid", mid="growth_mid", outfile="bosque_data.csv"):
+    if "area_ha" not in gdf.columns:
+        gdf["area_ha"] = gdf.geometry.area / 1e4
     data_rodales = gdf.dropna(subset=["edad"])
     data_rodales_2 = data_rodales.loc[data_rodales["area_ha"] > 0]
-    bos_names = ["rid", "mid", "edad_inicial", "ha"]  # aprender hacer formato decente
+    bos_names = ["rid", "growth_mid", "edad_inicial", "ha"]  # aprender hacer formato decente
     rodales = []
 
     for idx, r in data_rodales_2.iterrows():
@@ -61,8 +62,8 @@ def create_forest(gdf, id="fid"):
         e0 = r["edad"]
         ha = r["area_ha"]
         rodal = {
-            "rid": r[id],  # r["fid"] en caso habitual
-            "mid": r["id"],
+            "rid": r[id],
+            "growth_mid": r[mid],
             "edad_inicial": e0,
             "ha": ha,
         }
@@ -70,11 +71,9 @@ def create_forest(gdf, id="fid"):
 
     bos = np.array(
         [tuple(r[k] for k in bos_names) for r in rodales],
-        dtype=[("rid", "i4"), ("mid", "i4"), ("edad_inicial", "i4"), ("ha", "f4")],
+        dtype=[("rid", "i4"), ("growth_mid", "i4"), ("edad_inicial", "i4"), ("ha", "f4")],
     )
-    np.savetxt(
-        "bosque_data.csv", bos, delimiter=",", header=",".join(bos_names), comments="", fmt=["%d", "%d", "%d", "%.2f"]
-    )
+    np.savetxt(outfile, bos, delimiter=",", header=",".join(bos_names), comments="", fmt=["%d", "%d", "%d", "%.2f"])
 
 
 def plot_1_id_model(horizon: int = 40, show=True, save=False, target_id: int = 30):
