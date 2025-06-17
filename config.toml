@@ -1,5 +1,11 @@
-horizonte = 10
-rodales = 36
+# 
+horizon = 10
+#tabla de los modelos de crecieminto
+models_table="tabla.csv"
+study_area = "fdo/instance1_growth_attributes.shp"
+id = "fid"
+
+
 
 [random]
 # random number generator seed: omit or comment for different results each run
@@ -7,19 +13,18 @@ seed = 4
 # `low` (inclusive) to `high` (exclusive)
 # n, n+1 for getting a single value: n
 # see np.random.randint
-edades = [1, 18]
+ages = [1, 18]
 has = [5, 15]
+stands = 36
 
 # ranges: start, stop, step
 # n, n+1 for getting a single value range: [n]
 # see np.arange
 [pino]
-podas = [5, 15, 5] # not implemented
-raleos = [6, 11, 1]
-cosechas = [18, 29, 1]
-min_ral = 6
+pruning = [5, 15, 5] # not implemented
+thinning = [6, 11, 1]
+harvest = [18, 29, 1]
+min_thinning = 6
 
 [eucalyptus]
-podas = [4, 6, 2] # not implemented
-cosechas = [8, 13, 1]
-
+harvest = [8, 13, 1]

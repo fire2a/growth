@@ -6,13 +6,13 @@ Una ejecucion genera un lista de rodales (:dict) con sus manejos (:dict), biomas
 
     rodales = [ ...
         {'rid': 9,           # rodal id
-         'mid': 24,          # model id
+         'growth_mid': 24,          # model id
          'edad_inicial': 17,
          'edad_final': 27,
          'ha': 14,
          'manejos' : [ ...
             {'rid': 9,
-             'cosecha': 18,
+             'harvest': 18,
              'raleo': 6,
              'biomass': array([2593., 0., 54.7, 76.9, 118.8, 182.7, 270.2, 40., 46.7, 53.4]),
              'edades': array([17,  0,  1,  2,  3,  4,  5,  6,  7,  8]),
@@ -41,7 +41,7 @@ Funciones principales:
     - get_models: leer modelos de crecimiento desde un archivo csv
     - read_toml: leer configuración desde un archivo toml
     - calc_biomass: calcular la biomasa para un model y una edad
-    - generar_codigo_kitral: generar un diccionario de códigos Kitral basado en la Especie, edad y condición
+    - generate_kitral_code: generar un diccionario de códigos Kitral basado en la Especie, edad y condición
     - write: escribir archivos de salida
     - print_manejos_possibles: imprimir los manejos posibles
 
@@ -53,6 +53,7 @@ Funciones auxiliares (see auxiliary.py):
 
 Notice: Numpy is set to print only one decimal digit
 """
+
 import sys
 from itertools import product
 from pathlib import Path
@@ -105,7 +106,7 @@ def calc_biomass(model: np.void, e: int) -> float:
         return model["α"] * e ** model["β"] + model["γ"]
 
 
-def generar_codigo_kitral(especie: str, edad: int, condicion: str) -> int:
+def generate_kitral_code(especie: str, edad: int, condicion: str) -> int:
     """Genera un diccionario de códigos Kitral basado en la Especie, edad y condición"""
     if especie == "pino":
         if edad <= 3:
@@ -129,23 +130,65 @@ def generar_codigo_kitral(especie: str, edad: int, condicion: str) -> int:
     return value
 
 
+def get_kitral_data(codigo_kitral: int) -> dict:
+    """Obtiene la especie, rango de edad y condición a partir de un código Kitral."""
+    if codigo_kitral in [19, 20, 21, 22, 23, 24, 25]:
+        especie = "pino"
+        if codigo_kitral == 19:
+            edad = [0, 4]
+            condicion = "PostRaleo1250-700"
+        elif codigo_kitral == 20:
+            edad = [4, 12]
+            condicion = "PostRaleo1250-700"
+        elif codigo_kitral == 21:
+            edad = [12, 18]
+            condicion = "PostRaleo1250-700"
+        elif codigo_kitral == 22:
+            edad = [18, 41]
+            condicion = "PostRaleo1250-700"
+        elif codigo_kitral == 23:
+            edad = [6, 12]
+            condicion = "PostPodayRaleo700-300"
+        elif codigo_kitral == 24:
+            edad = [12, 18]
+            condicion = "PostPodayRaleo700-300"
+        elif codigo_kitral == 25:
+            edad = [18, 41]
+            condicion = "PostPodayRaleo700-300"
+    elif codigo_kitral in [26, 27, 28]:
+        especie = "eucalyptus"
+        if codigo_kitral == 26:
+            edad = [0, 4]
+            condicion = "SinManejo"
+        elif codigo_kitral == 27:
+            edad = [4, 11]
+            condicion = "SinManejo"
+        elif codigo_kitral == 28:
+            edad = [11, 31]
+            condicion = "SinManejo"
+    else:
+        return {"error": "Código Kitral desconocido"}
+
+    return {"especie": especie, "edad": edad, "condicion": condicion}
+
+
 def print_manejos_possibles(config):
     """Imprime todos los manejos posibles para los rodales"""
     manejos_posibles = []
     print("manejos posibles", end=": ")
-    for cosecha, raleo in product(np.arange(*config["pino"]["cosechas"]), np.arange(*config["pino"]["raleos"])):
+    for cosecha, raleo in product(np.arange(*config["pino"]["harvest"]), np.arange(*config["pino"]["thinning"])):
         if raleo > cosecha:
             continue
         print(f"(c{cosecha}, r{raleo})", end=", ")
         manejos_posibles.append([int(raleo), int(cosecha)])
-    for cosecha in np.arange(*config["eucalyptus"]["cosechas"]):
+    for cosecha in np.arange(*config["eucalyptus"]["harvest"]):
         print(f"(c{int(cosecha)}, r{-1})", end=", ")
         manejos_posibles.append([-1, int(cosecha)])
-    for cosecha in np.arange(*config["pino"]["cosechas"]):
+    for cosecha in np.arange(*config["pino"]["harvest"]):
         print(f"(c{cosecha}, r{-1})", end=", ")
         manejos_posibles.append([-1, int(cosecha)])
 
-    for raleo in np.arange(*config["pino"]["raleos"]):
+    for raleo in np.arange(*config["pino"]["thinning"]):
         print(f"(c{-1}, r{raleo})", end=", ")
         manejos_posibles.append([int(raleo), -1])
 
@@ -166,8 +209,7 @@ def read_toml(config_toml="config.toml"):
     return config
 
 
-def generate_random_forest(config=read_toml(), models=get_models()):
-
+def generate_random_forest(config=None, models=None):
     # 0 setup random number generator
     if seed := config["random"].get("seed"):
         rng = np.random.default_rng(seed)
@@ -178,16 +220,16 @@ def generate_random_forest(config=read_toml(), models=get_models()):
     rodales = []
     # itera = iter(range(config["rodales"]))
     # r = next(itera)
-    for r in range(config["rodales"]):
+    for r in range(config["random"]["stands"]):
         model = rng.choice(models)
         # model = rng.choice(models)
         # print(model)
-        e0 = rng.integers(*config["random"]["edades"])
-        e1 = e0 + config["horizonte"]
+        e0 = rng.integers(*config["random"]["ages"])
+        e1 = e0 + config["horizon"]
         ha = rng.integers(*config["random"]["has"])
         rodal = {
-            "rid": rodal["rid"],
-            "mid": model["id"],
+            "rid": r,
+            "growth_mid": model["id"],
             "edad_inicial": e0,
             "edad_final": e1,
             "ha": ha,
@@ -197,17 +239,16 @@ def generate_random_forest(config=read_toml(), models=get_models()):
     return rodales
 
 
-def generate_forest(config=read_toml(), filepath="./bosque_data.csv"):
-
+def generate_forest(config=None, filepath="bosque_data.csv"):
     data = np.genfromtxt(filepath, delimiter=",", names=True)
     rodales = []
     for r in data:
         e0 = r["edad_inicial"]
-        e1 = e0 + config["horizonte"]
+        e1 = e0 + config["horizon"]
         ha = r["ha"]
         rodal = {
             "rid": r["rid"],  # Identificador único para cada rodal
-            "mid": r["mid"],
+            "growth_mid": r["growth_mid"],
             "edad_inicial": e0,
             "edad_final": e1,
             "ha": ha,
@@ -217,10 +258,10 @@ def generate_forest(config=read_toml(), filepath="./bosque_data.csv"):
     return rodales
 
 
-def generate(config=read_toml(), models=get_models(), rodales=generate_forest()):
+def generate(config=None, models=None, rodales=None):
     """Genera los rodales con las biomasas generadas por cada año, dependiendo de su manejo y edad de crecimiento, junto con la biomasa para vender y el codigo kitral"""
     for rodal in rodales:
-        indices = np.where(models["id"] == rodal["mid"])[0]
+        indices = np.where(models["id"] == rodal["growth_mid"])[0]
         model = models[indices][0]
         # model = rng.choice(models)
         # print(model)
@@ -237,33 +278,33 @@ def generate(config=read_toml(), models=get_models(), rodales=generate_forest())
                 "edades": edades,
                 "eventos": ["" for e in edades],
                 "vendible": [0 for e in edades],
-                "codigo_kitral": [generar_codigo_kitral(model["Especie"], e, "sin manejo") for e in edades],
+                "codigo_kitral": [generate_kitral_code(model["Especie"], e, "sin manejo") for e in edades],
             }
         ]
 
-        # has cosecha if any of the proposed "cosechas" ranges are in the simulated "edades"
-        has_cosecha = any(np.isin(np.arange(*config[model["Especie"]]["cosechas"]), edades))
+        # has cosecha if any of the proposed "harvest" ranges are in the simulated "edades"
+        has_cosecha = any(np.isin(np.arange(*config[model["Especie"]]["harvest"]), edades))
 
         # can have raleo only if it's pino
         if model["Especie"] == "pino":
             if not has_cosecha:
                 # easy case
-                has_raleo = (model["next"] != -1) and any(np.isin(np.arange(*config["pino"]["raleos"]), edades))
+                has_raleo = (model["next"] != -1) and any(np.isin(np.arange(*config["pino"]["thinning"]), edades))
             else:
                 # adjust "edades" -> "edades_manejo", by periodically "cosecha" (to harvest) via modulus operator
                 # then check if raleo is in range
                 has_raleo = False
-                for cosecha in np.arange(*config["pino"]["cosechas"]):
+                for cosecha in np.arange(*config["pino"]["harvest"]):
                     edades_manejo = edades % cosecha
                     if model["prev"] == -1:  # no raleado desde un inicio
                         has_raleo = (model["next"] != -1) and any(
-                            np.isin(np.arange(*config["pino"]["raleos"]), edades_anejo)
+                            np.isin(np.arange(*config["pino"]["thinning"]), edades_manejo)
                         )
                     else:  # raleado desde un inicio
-                        raleos = np.arange(*config["pino"]["raleos"])
-                        has_raleo = any((raleo + cosecha) in edades for raleo in raleos)
+                        thinning = np.arange(*config["pino"]["thinning"])
+                        has_raleo = any((raleo + cosecha) in edades for raleo in thinning)
 
-                    print(cosecha, np.arange(*config["pino"]["raleos"]), edades_manejo, has_raleo)
+                    print(cosecha, np.arange(*config["pino"]["thinning"]), edades_manejo, has_raleo)
                     if has_raleo:
                         break
         else:
@@ -277,9 +318,9 @@ def generate(config=read_toml(), models=get_models(), rodales=generate_forest())
             display(manejos)
         # 2
         elif has_cosecha and not has_raleo:
-            # iterb = iter(np.arange(*config[model["Especie"]]["cosechas"]))
+            # iterb = iter(np.arange(*config[model["Especie"]]["harvest"]))
             # cosecha = next(iterb)
-            for cosecha in np.arange(*config[model["Especie"]]["cosechas"]):
+            for cosecha in np.arange(*config[model["Especie"]]["harvest"]):
                 if cosecha not in edades:
                     display(f"skipping: {e0=} !< {cosecha=} !< {e1=}")
                     continue
@@ -288,7 +329,8 @@ def generate(config=read_toml(), models=get_models(), rodales=generate_forest())
                     mods = [model["id"]] * len(edades_manejo)
                 else:
                     mods = [
-                        model["id"] if e > config[model["Especie"]]["min_ral"] else model["prev"] for e in edades_manejo
+                        model["id"] if e > config[model["Especie"]]["min_thinning"] else model["prev"]
+                        for e in edades_manejo
                     ]
                 manejo = {
                     "rid": rodal["rid"],
@@ -300,9 +342,9 @@ def generate(config=read_toml(), models=get_models(), rodales=generate_forest())
                     "vendible": ha * np.array([calc_biomass(model, cosecha) if e == 0 else 0 for e in edades_manejo]),
                     "codigo_kitral": [
                         (
-                            generar_codigo_kitral(model["Especie"], cosecha, "sin manejo")
+                            generate_kitral_code(model["Especie"], cosecha, "sin manejo")
                             if e == 0
-                            else generar_codigo_kitral(model["Especie"], e, "sin manejo")
+                            else generate_kitral_code(model["Especie"], e, "sin manejo")
                         )
                         for e in edades_manejo
                     ],
@@ -311,9 +353,9 @@ def generate(config=read_toml(), models=get_models(), rodales=generate_forest())
                 display(manejo)
         # 3
         elif not has_cosecha and has_raleo:
-            # iterc = iter(np.arange(*config[model["Especie"]]["raleos"]))
+            # iterc = iter(np.arange(*config[model["Especie"]]["thinning"]))
             # raleo = next(iterc)
-            for raleo in np.arange(*config[model["Especie"]]["raleos"]):
+            for raleo in np.arange(*config[model["Especie"]]["thinning"]):
                 if raleo not in edades:
                     display(f"skipping: {e0=} !< {raleo=} !< {e1=}")
                     continue
@@ -357,9 +399,9 @@ def generate(config=read_toml(), models=get_models(), rodales=generate_forest())
                     ),
                     "codigo_kitral": [
                         (
-                            generar_codigo_kitral(model["Especie"], e, "sin manejo")
+                            generate_kitral_code(model["Especie"], e, "sin manejo")
                             if e < raleo
-                            else generar_codigo_kitral(model["Especie"], e, "con manejo")
+                            else generate_kitral_code(model["Especie"], e, "con manejo")
                         )
                         for e in edades
                     ],
@@ -370,16 +412,15 @@ def generate(config=read_toml(), models=get_models(), rodales=generate_forest())
         else:  # has cosecha and raleo, se asume que se raleo antes del periodo 0 en calc_biomass
             # iterd = iter(
             #     product(
-            #         np.arange(*config[model["Especie"]]["cosechas"]), np.arange(*config[model["Especie"]]["raleos"])
+            #         np.arange(*config[model["Especie"]]["harvest"]), np.arange(*config[model["Especie"]]["thinning"])
             #     )
             # )
             # cosecha, raleo = next(iterd)
             for cosecha, raleo in product(
-                np.arange(*config[model["Especie"]]["cosechas"]), np.arange(*config[model["Especie"]]["raleos"])
+                np.arange(*config[model["Especie"]]["harvest"]), np.arange(*config[model["Especie"]]["thinning"])
             ):
                 edades_manejo = edades % cosecha
                 if model["prev"] == -1:
-
                     if (raleo >= cosecha) or (cosecha not in edades) or (raleo not in edades_manejo):
                         # display(f"skipping: {min(edades_manejo)=} {max(edades_manejo)=} !< {raleo=} !< {cosecha=} !< {e1=}")
                         continue
@@ -462,12 +503,12 @@ def generate(config=read_toml(), models=get_models(), rodales=generate_forest())
                     "vendible": ha * np.array(vendible),
                     "codigo_kitral": [
                         (
-                            generar_codigo_kitral(model["Especie"], e, "con manejo")
+                            generate_kitral_code(model["Especie"], e, "con manejo")
                             if e >= raleo
                             else (
-                                generar_codigo_kitral(model["Especie"], cosecha, "con manejo")
+                                generate_kitral_code(model["Especie"], cosecha, "con manejo")
                                 if e == 0
-                                else generar_codigo_kitral(model["Especie"], e, "sin manejo")
+                                else generate_kitral_code(model["Especie"], e, "sin manejo")
                             )
                         )
                         for e in edades_manejo
@@ -496,7 +537,7 @@ def write(rodales):
     np.savetxt("vendible.csv", vd.T, delimiter=",", header=names, comments="")
     np.savetxt("codigo_kitral.csv", kt.T, delimiter=",", header=names, comments="", fmt="%s")
 
-    bos_names = ["rid", "mid", "edad_inicial", "ha"]  # aprender hacer formato decente
+    bos_names = ["rid", "growth_mid", "edad_inicial", "ha"]  # aprender hacer formato decente
     bos = np.array([tuple(r[k] for k in bos_names) for r in rodales])
     np.savetxt("bosque.csv", bos, delimiter=",", header=",".join(bos_names), comments="", fmt="%d")
 
@@ -577,7 +618,6 @@ def main(argv=None):
         rodales_sin_manejo = generate_random_forest()
 
     else:
-
         # usar bosque_data.csv, si no se tiene se puede crear con las funciones del auxiliary
         rodales_sin_manejo = generate_forest(config, args.data_forest)
 
